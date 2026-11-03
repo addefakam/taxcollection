@@ -6,23 +6,32 @@ export async function GET() {
   const [
     totalTaxPayers,
     activeTaxPayers,
+    blockedTaxPayers,
+    totalStaff,
     assigned,
     bankReceiptSubmitted,
     completed,
     cancelled,
+    disputed,
     recentAssignments,
     recentHistory,
   ] = await Promise.all([
     db.taxPayer.count(),
     db.taxPayer.count({ where: { active: true } }),
+    db.taxPayer.count({ where: { blocked: true } }),
+    db.staff.count({ where: { active: true } }),
     db.taxAssignment.count({ where: { status: 'ASSIGNED' } }),
     db.taxAssignment.count({ where: { status: 'BANK_RECEIPT_SUBMITTED' } }),
     db.taxAssignment.count({ where: { status: 'COMPLETED' } }),
     db.taxAssignment.count({ where: { status: 'CANCELLED' } }),
+    db.taxAssignment.count({ where: { disputed: true } }),
     db.taxAssignment.findMany({
       take: 5,
       orderBy: { updatedAt: 'desc' },
-      include: { taxPayer: true },
+      include: {
+        taxPayer: true,
+        assignedBy: { select: { id: true, fullName: true } },
+      },
     }),
     db.assignmentHistory.findMany({
       take: 10,
@@ -55,7 +64,7 @@ export async function GET() {
     count: c._count,
   }))
 
-  // Counts by tax type (assignments)
+  // Counts by tax type
   const byTaxTypeRaw = await db.taxAssignment.groupBy({
     by: ['taxType'],
     _count: true,
@@ -66,14 +75,32 @@ export async function GET() {
     count: c._count,
   }))
 
+  // Counts by woreda
+  const byWoredaRaw = await db.taxPayer.groupBy({
+    by: ['woredaId'],
+    _count: true,
+  })
+
+  const woredaIds = byWoredaRaw.map((w) => w.woredaId).filter(Boolean) as string[]
+  const woredas = await db.woreda.findMany({ where: { id: { in: woredaIds } } })
+  const woredaMap = new Map(woredas.map((w) => [w.id, w]))
+  const byWoreda = byWoredaRaw.map((w) => ({
+    woredaId: w.woredaId,
+    woredaName: w.woredaId ? woredaMap.get(w.woredaId)?.name || 'Unknown' : 'Unassigned',
+    count: w._count,
+  }))
+
   return NextResponse.json({
     counts: {
       totalTaxPayers,
       activeTaxPayers,
+      blockedTaxPayers,
+      totalStaff,
       assigned,
       bankReceiptSubmitted,
       completed,
       cancelled,
+      disputed,
       totalAssignments: assigned + bankReceiptSubmitted + completed,
     },
     amounts: {
@@ -83,6 +110,7 @@ export async function GET() {
     },
     byCategory,
     byTaxType,
+    byWoreda,
     recentAssignments,
     recentHistory,
   })

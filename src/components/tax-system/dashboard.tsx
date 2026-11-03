@@ -15,6 +15,8 @@ import {
   AlertCircle,
   Clock,
   Building2,
+  ShieldOff,
+  UserCheck,
 } from 'lucide-react'
 import { fmtETB, fmtNumber, fmtDate, STATUS_META } from './lib'
 
@@ -22,10 +24,13 @@ interface Stats {
   counts: {
     totalTaxPayers: number
     activeTaxPayers: number
+    blockedTaxPayers: number
+    totalStaff: number
     assigned: number
     bankReceiptSubmitted: number
     completed: number
     cancelled: number
+    disputed: number
     totalAssignments: number
   }
   amounts: {
@@ -35,12 +40,15 @@ interface Stats {
   }
   byCategory: { category: string; count: number }[]
   byTaxType: { taxType: string; count: number }[]
+  byWoreda: { woredaId: string | null; woredaName: string; count: number }[]
   recentAssignments: Array<{
     id: string
     referenceNo: string
     status: keyof typeof STATUS_META
+    disputed: boolean
     amountDue: number
     taxType: string
+    assignedByName: string
     taxPayer: { tin: string; fullName: string }
     updatedAt: string
   }>
@@ -48,7 +56,7 @@ interface Stats {
     id: string
     action: string
     note: string
-    performedBy: string
+    performedByName: string
     timestamp: string
     assignment: { referenceNo: string; taxPayer: { fullName: string } } | null
   }>
@@ -96,7 +104,7 @@ export function Dashboard() {
     )
   }
 
-  const { counts, amounts, byCategory, byTaxType, recentAssignments, recentHistory } = stats
+  const { counts, amounts, byCategory, byTaxType, byWoreda, recentAssignments, recentHistory } = stats
   const collectedPct =
     amounts.totalAssignedAmount > 0
       ? Math.round((amounts.totalCollected / amounts.totalAssignedAmount) * 100)
@@ -106,7 +114,7 @@ export function Dashboard() {
     {
       label: 'Tax Payers',
       value: counts.totalTaxPayers,
-      sub: `${counts.activeTaxPayers} active`,
+      sub: `${counts.activeTaxPayers} active${counts.blockedTaxPayers > 0 ? ` · ${counts.blockedTaxPayers} blocked` : ''}`,
       icon: Users,
       tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
     },
@@ -120,7 +128,7 @@ export function Dashboard() {
     {
       label: 'Bank Receipts Pending',
       value: counts.bankReceiptSubmitted,
-      sub: 'Awaiting govt receipt',
+      sub: `${counts.disputed > 0 ? `${counts.disputed} disputed · ` : ''}Awaiting govt receipt`,
       icon: Receipt,
       tone: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
     },
@@ -257,7 +265,7 @@ export function Dashboard() {
                     <div className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground">
-                        <span className="font-medium">{h.performedBy}</span>{' '}
+                        <span className="font-medium">{h.performedByName}</span>{' '}
                         <span className="text-muted-foreground">
                           — {actionLabel(h.action)}
                         </span>
@@ -306,6 +314,64 @@ export function Dashboard() {
         </Card>
       </div>
 
+      {/* Woreda + staff summary */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-4 w-4 text-primary" />
+              Tax Payers by Woreda
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {byWoreda.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No data.</p>
+            ) : (
+              <ul className="space-y-2">
+                {byWoreda.map((w) => (
+                  <li
+                    key={w.woredaId || 'none'}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="truncate">{w.woredaName}</span>
+                    <Badge variant="secondary">{w.count}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <UserCheck className="h-4 w-4 text-primary" />
+              Office Staff
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Total active staff</span>
+                <Badge variant="secondary">{counts.totalStaff}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Blocked tax payers</span>
+                <Badge variant={counts.blockedTaxPayers > 0 ? 'destructive' : 'secondary'}>
+                  {counts.blockedTaxPayers}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Disputed assignments</span>
+                <Badge variant={counts.disputed > 0 ? 'destructive' : 'secondary'}>
+                  {counts.disputed}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Recent assignments */}
       <Card>
         <CardHeader>
@@ -331,6 +397,11 @@ export function Dashboard() {
                     <Badge variant="outline" className="font-mono text-xs">
                       {a.referenceNo}
                     </Badge>
+                    {a.disputed && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-900/30 px-2 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300">
+                        <AlertCircle className="h-3 w-3" /> Disputed
+                      </span>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{a.taxPayer.fullName}</p>
                       <p className="text-xs text-muted-foreground">

@@ -48,7 +48,18 @@ import {
   Mail,
   MapPin,
   X,
+  ShieldOff,
+  ShieldCheck,
+  AlertTriangle,
+  Landmark,
+  UserCircle,
 } from 'lucide-react'
+
+interface Woreda {
+  id: string
+  code: string
+  name: string
+}
 
 interface TaxPayer {
   id: string
@@ -58,9 +69,16 @@ interface TaxPayer {
   phone?: string | null
   email?: string | null
   address?: string | null
-  woreda?: string | null
+  woredaId?: string | null
+  woreda?: Woreda | null
   kebele?: string | null
+  tradeLicenseNo?: string | null
+  contactPerson?: string | null
+  notes?: string | null
   active: boolean
+  blocked: boolean
+  blockedReason?: string | null
+  blockedAt?: string | null
   createdAt: string
   _count?: { assignments: number }
   assignments?: Array<{
@@ -81,25 +99,30 @@ const emptyForm = {
   phone: '',
   email: '',
   address: '',
-  woreda: '',
+  woredaId: '',
   kebele: '',
+  tradeLicenseNo: '',
+  contactPerson: '',
+  notes: '',
 }
 
 export function TaxPayers() {
-  const { role } = useRole()
+  const { role, staffId, staffName } = useRole()
   const canEdit = role === 'LEADER' || role === 'TEAM_1_ASSIGNMENT'
+  const isLeader = role === 'LEADER'
   const { toast } = useToast()
   const [list, setList] = useState<TaxPayer[]>([])
+  const [woredas, setWoredas] = useState<Woreda[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
+  const [showBlocked, setShowBlocked] = useState(false)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<TaxPayer | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
 
-  // detail sheet
   const [detail, setDetail] = useState<TaxPayer | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
@@ -108,16 +131,23 @@ export function TaxPayers() {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (category) params.set('category', category)
+    if (!showBlocked) params.set('blocked', 'false')
     fetch(`/api/taxpayers?${params}`)
       .then((r) => r.json())
       .then((d) => setList(d))
       .finally(() => setLoading(false))
-  }, [q, category])
+  }, [q, category, showBlocked])
 
   useEffect(() => {
     const t = setTimeout(load, 250)
     return () => clearTimeout(t)
   }, [load])
+
+  useEffect(() => {
+    fetch('/api/woredas')
+      .then((r) => r.json())
+      .then((d) => setWoredas(d))
+  }, [])
 
   const openCreate = () => {
     setForm(emptyForm)
@@ -134,8 +164,11 @@ export function TaxPayers() {
       phone: tp.phone || '',
       email: tp.email || '',
       address: tp.address || '',
-      woreda: tp.woreda || '',
+      woredaId: tp.woredaId || '',
       kebele: tp.kebele || '',
+      tradeLicenseNo: tp.tradeLicenseNo || '',
+      contactPerson: tp.contactPerson || '',
+      notes: tp.notes || '',
     })
     setCreateOpen(true)
   }
@@ -193,6 +226,39 @@ export function TaxPayers() {
     }
   }
 
+  const toggleBlock = async (tp: TaxPayer) => {
+    if (tp.blocked) {
+      if (!confirm(`Unblock tax payer ${tp.fullName}?`)) return
+      const res = await fetch(`/api/taxpayers/${tp.id}/block`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: false }),
+      })
+      if (res.ok) {
+        toast({ title: 'Tax payer unblocked', description: tp.fullName })
+        load()
+        if (detail && detail.id === tp.id) openDetail(tp)
+      }
+    } else {
+      const reason = prompt(`Block tax payer ${tp.fullName}? Enter reason:`)
+      if (reason === null) return
+      const res = await fetch(`/api/taxpayers/${tp.id}/block`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blocked: true,
+          reason,
+          blockedByStaffId: staffId,
+        }),
+      })
+      if (res.ok) {
+        toast({ title: 'Tax payer blocked', description: tp.fullName })
+        load()
+        if (detail && detail.id === tp.id) openDetail(tp)
+      }
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -200,7 +266,7 @@ export function TaxPayers() {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by TIN, name, or phone..."
+            placeholder="Search by TIN, name, phone, or trade license..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="pl-9"
@@ -219,6 +285,14 @@ export function TaxPayers() {
             ))}
           </SelectContent>
         </Select>
+        <Button
+          variant={showBlocked ? 'default' : 'outline'}
+          onClick={() => setShowBlocked((v) => !v)}
+          className="gap-2"
+        >
+          <AlertTriangle className="h-4 w-4" />
+          {showBlocked ? 'Showing blocked' : 'Hide blocked'}
+        </Button>
         {canEdit && (
           <Button onClick={openCreate} className="gap-2">
             <UserPlus className="h-4 w-4" /> Add Tax Payer
@@ -261,7 +335,7 @@ export function TaxPayers() {
                       <th className="px-4 py-2 text-left font-medium">Name</th>
                       <th className="px-4 py-2 text-left font-medium">Category</th>
                       <th className="px-4 py-2 text-left font-medium">Contact</th>
-                      <th className="px-4 py-2 text-left font-medium">Woreda / Kebele</th>
+                      <th className="px-4 py-2 text-left font-medium">Woreda</th>
                       <th className="px-4 py-2 text-center font-medium">Assignments</th>
                       <th className="px-4 py-2 text-right font-medium">Actions</th>
                     </tr>
@@ -276,7 +350,12 @@ export function TaxPayers() {
                         <td className="px-4 py-3 font-mono text-xs">{tp.tin}</td>
                         <td className="px-4 py-3 font-medium">
                           {tp.fullName}
-                          {!tp.active && (
+                          {tp.blocked && (
+                            <Badge variant="destructive" className="ml-2 text-xs">
+                              Blocked
+                            </Badge>
+                          )}
+                          {!tp.active && !tp.blocked && (
                             <Badge variant="secondary" className="ml-2 text-xs">
                               Inactive
                             </Badge>
@@ -289,13 +368,27 @@ export function TaxPayers() {
                           {tp.phone || '—'}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {tp.woreda || '—'} / {tp.kebele || '—'}
+                          {tp.woreda ? `Woreda ${tp.woreda.code}` : '—'}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Badge variant="secondary">{tp._count?.assignments || 0}</Badge>
                         </td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
+                            {isLeader && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => toggleBlock(tp)}
+                                title={tp.blocked ? 'Unblock' : 'Block'}
+                              >
+                                {tp.blocked ? (
+                                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                                ) : (
+                                  <ShieldOff className="h-3.5 w-3.5 text-rose-600" />
+                                )}
+                              </Button>
+                            )}
                             {canEdit && (
                               <>
                                 <Button
@@ -335,13 +428,20 @@ export function TaxPayers() {
                         <p className="font-medium truncate">{tp.fullName}</p>
                         <p className="text-xs text-muted-foreground font-mono">{tp.tin}</p>
                       </div>
-                      <Badge variant="outline">{categoryLabel(tp.category)}</Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline">{categoryLabel(tp.category)}</Badge>
+                        {tp.blocked && (
+                          <Badge variant="destructive" className="text-[10px]">
+                            Blocked
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Phone className="h-3 w-3" /> {tp.phone || '—'}
                       </span>
-                      <Badge variant="secondary">{tp._count?.assignments || 0} assignments</Badge>
+                      {tp.woreda && <Badge variant="secondary">Woreda {tp.woreda.code}</Badge>}
                     </div>
                   </button>
                 ))}
@@ -353,7 +453,7 @@ export function TaxPayers() {
 
       {/* Create / Edit dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Tax Payer' : 'Add New Tax Payer'}</DialogTitle>
             <DialogDescription>
@@ -416,11 +516,22 @@ export function TaxPayers() {
             </div>
             <div className="space-y-1.5">
               <Label>Woreda (sub-city)</Label>
-              <Input
-                value={form.woreda}
-                onChange={(e) => setForm({ ...form, woreda: e.target.value })}
-                placeholder="01"
-              />
+              <Select
+                value={form.woredaId || 'NONE'}
+                onValueChange={(v) => setForm({ ...form, woredaId: v === 'NONE' ? '' : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select woreda..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">— None —</SelectItem>
+                  {woredas.map((w) => (
+                    <SelectItem key={w.id} value={w.id}>
+                      {w.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Kebele</Label>
@@ -430,12 +541,36 @@ export function TaxPayers() {
                 placeholder="03"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>Trade License No.</Label>
+              <Input
+                value={form.tradeLicenseNo}
+                onChange={(e) => setForm({ ...form, tradeLicenseNo: e.target.value })}
+                placeholder="BL-XXX-YYYY"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contact Person</Label>
+              <Input
+                value={form.contactPerson}
+                onChange={(e) => setForm({ ...form, contactPerson: e.target.value })}
+                placeholder="e.g. Ato Bekele"
+              />
+            </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Address</Label>
               <Input
                 value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
                 placeholder="Street, landmark, etc."
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Notes</Label>
+              <Input
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="Any internal note"
               />
             </div>
           </div>
@@ -468,7 +603,27 @@ export function TaxPayers() {
                   ) : (
                     <Badge variant="secondary">Inactive</Badge>
                   )}
+                  {detail.blocked && <Badge variant="destructive">Blocked</Badge>}
                 </div>
+
+                {detail.blocked && (
+                  <div className="rounded-md border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-3 text-sm">
+                    <p className="flex items-center gap-2 font-medium text-rose-700 dark:text-rose-300">
+                      <ShieldOff className="h-4 w-4" /> Blocked
+                    </p>
+                    {detail.blockedReason && (
+                      <p className="text-xs text-rose-700 dark:text-rose-300 mt-1">
+                        {detail.blockedReason}
+                      </p>
+                    )}
+                    {detail.blockedAt && (
+                      <p className="text-xs text-rose-700 dark:text-rose-300 mt-1">
+                        On {fmtDate(detail.blockedAt)}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-2 text-sm">
                   {detail.phone && (
                     <div className="flex items-center gap-2">
@@ -487,10 +642,33 @@ export function TaxPayers() {
                       <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
                       <div>
                         {detail.address && <p>{detail.address}</p>}
+                        {detail.woreda && (
+                          <p className="text-xs text-muted-foreground">
+                            <Landmark className="h-3 w-3 inline mr-1" />
+                            {detail.woreda.name}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">
-                          Woreda {detail.woreda || '—'} · Kebele {detail.kebele || '—'}
+                          Kebele {detail.kebele || '—'}
                         </p>
                       </div>
+                    </div>
+                  )}
+                  {detail.tradeLicenseNo && (
+                    <div className="flex items-center gap-2">
+                      <FileIcon className="h-4 w-4 text-muted-foreground" />
+                      <span>Trade License: <span className="font-mono">{detail.tradeLicenseNo}</span></span>
+                    </div>
+                  )}
+                  {detail.contactPerson && (
+                    <div className="flex items-center gap-2">
+                      <UserCircle className="h-4 w-4 text-muted-foreground" />
+                      <span>Contact: {detail.contactPerson}</span>
+                    </div>
+                  )}
+                  {detail.notes && (
+                    <div className="text-xs text-muted-foreground italic">
+                      Notes: {detail.notes}
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground pt-2">
@@ -528,7 +706,7 @@ export function TaxPayers() {
                   )}
                 </div>
               </div>
-              <SheetFooter>
+              <SheetFooter className="flex-col gap-2 sm:flex-row">
                 {canEdit && (
                   <Button
                     variant="outline"
@@ -541,6 +719,23 @@ export function TaxPayers() {
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </Button>
                 )}
+                {isLeader && (
+                  <Button
+                    variant={detail.blocked ? 'default' : 'outline'}
+                    className="gap-2"
+                    onClick={() => toggleBlock(detail)}
+                  >
+                    {detail.blocked ? (
+                      <>
+                        <ShieldCheck className="h-3.5 w-3.5" /> Unblock
+                      </>
+                    ) : (
+                      <>
+                        <ShieldOff className="h-3.5 w-3.5" /> Block
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={() => setDetail(null)}>
                   <X className="h-4 w-4" /> Close
                 </Button>
@@ -550,5 +745,23 @@ export function TaxPayers() {
         </SheetContent>
       </Sheet>
     </div>
+  )
+}
+
+function FileIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+    </svg>
   )
 }

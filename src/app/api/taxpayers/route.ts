@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// GET /api/taxpayers?q=...&category=...&active=...
+// GET /api/taxpayers?q=...&category=...&active=...&woredaId=...&blocked=...
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim() || ''
   const category = searchParams.get('category') || ''
   const active = searchParams.get('active')
+  const woredaId = searchParams.get('woredaId') || ''
+  const blocked = searchParams.get('blocked')
 
   const where: Record<string, unknown> = {}
   if (q) {
@@ -14,16 +16,21 @@ export async function GET(req: NextRequest) {
       { tin: { contains: q } },
       { fullName: { contains: q } },
       { phone: { contains: q } },
+      { tradeLicenseNo: { contains: q } },
     ]
   }
   if (category) where.category = category
   if (active === 'true') where.active = true
   if (active === 'false') where.active = false
+  if (woredaId) where.woredaId = woredaId
+  if (blocked === 'true') where.blocked = true
+  if (blocked === 'false') where.blocked = false
 
   const taxpayers = await db.taxPayer.findMany({
     where,
     orderBy: { createdAt: 'desc' },
     include: {
+      woreda: true,
       _count: { select: { assignments: true } },
     },
   })
@@ -33,7 +40,19 @@ export async function GET(req: NextRequest) {
 // POST /api/taxpayers
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { tin, fullName, category, phone, email, address, woreda, kebele } = body
+  const {
+    tin,
+    fullName,
+    category,
+    phone,
+    email,
+    address,
+    woredaId,
+    kebele,
+    tradeLicenseNo,
+    contactPerson,
+    notes,
+  } = body
 
   if (!tin || !fullName || !category) {
     return NextResponse.json(
@@ -51,7 +70,20 @@ export async function POST(req: NextRequest) {
   }
 
   const tp = await db.taxPayer.create({
-    data: { tin, fullName, category, phone, email, address, woreda, kebele },
+    data: {
+      tin,
+      fullName,
+      category,
+      phone,
+      email,
+      address,
+      woredaId: woredaId || null,
+      kebele,
+      tradeLicenseNo,
+      contactPerson,
+      notes,
+    },
+    include: { woreda: true },
   })
   return NextResponse.json(tp, { status: 201 })
 }

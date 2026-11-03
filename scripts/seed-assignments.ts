@@ -3,12 +3,24 @@
 import { db } from '../src/lib/db'
 
 async function main() {
-  const taxpayers = await db.taxPayer.findMany()
+  const taxpayers = await db.taxPayer.findMany({ include: { woreda: true } })
   if (taxpayers.length === 0) {
     console.log('No tax payers found. Run seed.ts first.')
     return
   }
   const byTin = Object.fromEntries(taxpayers.map((t) => [t.tin, t]))
+
+  const staff = await db.staff.findMany()
+  if (staff.length === 0) {
+    console.log('No staff found. Run seed.ts first.')
+    return
+  }
+  const byEmail = Object.fromEntries(staff.map((s) => [s.email, s]))
+
+  const t1a = byEmail['almaz.bekele@bishoftu.gov.et'] // Team 1
+  const t1b = byEmail['dawit.girma@bishoftu.gov.et'] // Team 1
+  const t2a = byEmail['sara.mengistu@bishoftu.gov.et'] // Team 2
+  const t2b = byEmail['yonas.tadesse@bishoftu.gov.et'] // Team 2
 
   // Get current count for reference numbering
   const existing = await db.taxAssignment.count()
@@ -21,7 +33,7 @@ async function main() {
     taxType: string
     amountDue: number
     description?: string
-    assignedBy: string
+    assignedByEmail: string
     daysAgoAssigned: number
     daysAgoDue: number
     // bank receipt
@@ -29,15 +41,17 @@ async function main() {
     bankReceiptNumber?: string
     paymentAmount?: number
     daysAgoPaid?: number
-    bankReceiptReceivedBy?: string
+    receivedByEmail?: string
     // govt receipt
     governmentReceiptNumber?: string
-    governmentReceiptIssuedBy?: string
+    issuedByEmail?: string
     daysAgoIssued?: number
+    disputed?: boolean
+    disputeReason?: string
   }
 
   const defs: AssignDef[] = [
-    // ASSIGNED — awaiting payment (2 cases)
+    // ASSIGNED — awaiting payment
     {
       tin: 'BT-0001-2026',
       fiscalYear: '2026/2027',
@@ -45,7 +59,7 @@ async function main() {
       taxType: 'Business Income Tax',
       amountDue: 45000,
       description: 'Q1 business income tax based on previous year assessment',
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1a.email,
       daysAgoAssigned: 2,
       daysAgoDue: 12,
     },
@@ -55,25 +69,25 @@ async function main() {
       period: 'Q1',
       taxType: 'Vehicle Tax',
       amountDue: 3200,
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1b.email,
       daysAgoAssigned: 5,
       daysAgoDue: 9,
     },
-    // BANK_RECEIPT_SUBMITTED — awaiting govt receipt (2 cases)
+    // BANK_RECEIPT_SUBMITTED — awaiting govt receipt (one disputed)
     {
       tin: 'BT-0002-2026',
       fiscalYear: '2026/2027',
       period: 'Q1',
       taxType: 'Business Income Tax',
       amountDue: 12500,
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1a.email,
       daysAgoAssigned: 8,
       daysAgoDue: -2,
       bankName: 'Commercial Bank of Ethiopia (CBE)',
       bankReceiptNumber: 'CBE-55128749',
       paymentAmount: 12500,
       daysAgoPaid: 1,
-      bankReceiptReceivedBy: 'Sara M.',
+      receivedByEmail: t2a.email,
     },
     {
       tin: 'BT-0009-2026',
@@ -81,32 +95,34 @@ async function main() {
       period: 'ANNUAL',
       taxType: 'Individual Income Tax',
       amountDue: 18750,
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1b.email,
       daysAgoAssigned: 14,
       daysAgoDue: -5,
       bankName: 'Awash Bank',
       bankReceiptNumber: 'AW-9981234',
-      paymentAmount: 18750,
+      paymentAmount: 18000, // less than due -> disputed
       daysAgoPaid: 2,
-      bankReceiptReceivedBy: 'Sara M.',
+      receivedByEmail: t2b.email,
+      disputed: true,
+      disputeReason: 'Paid amount (ETB 18,000) is less than amount due (ETB 18,750). Tax payer claims penalty waived.',
     },
-    // COMPLETED — full cycle done (3 cases)
+    // COMPLETED — full cycle done
     {
       tin: 'BT-0006-2026',
       fiscalYear: '2025/2026',
       period: 'Q4',
       taxType: 'Value Added Tax (VAT)',
       amountDue: 87500,
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1a.email,
       daysAgoAssigned: 30,
       daysAgoDue: -8,
       bankName: 'Dashen Bank',
       bankReceiptNumber: 'DB-4477123',
       paymentAmount: 87500,
       daysAgoPaid: 20,
-      bankReceiptReceivedBy: 'Sara M.',
+      receivedByEmail: t2a.email,
       governmentReceiptNumber: 'GR-2026-0042',
-      governmentReceiptIssuedBy: 'Sara M.',
+      issuedByEmail: t2a.email,
       daysAgoIssued: 19,
     },
     {
@@ -115,16 +131,16 @@ async function main() {
       period: 'ANNUAL',
       taxType: 'Property Tax',
       amountDue: 24000,
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1b.email,
       daysAgoAssigned: 45,
       daysAgoDue: -15,
       bankName: 'Bank of Abyssinia',
       bankReceiptNumber: 'AB-2201845',
       paymentAmount: 24000,
       daysAgoPaid: 28,
-      bankReceiptReceivedBy: 'Sara M.',
+      receivedByEmail: t2b.email,
       governmentReceiptNumber: 'GR-2026-0039',
-      governmentReceiptIssuedBy: 'Sara M.',
+      issuedByEmail: t2b.email,
       daysAgoIssued: 27,
     },
     {
@@ -133,26 +149,26 @@ async function main() {
       period: 'Q4',
       taxType: 'Value Added Tax (VAT)',
       amountDue: 63200,
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1a.email,
       daysAgoAssigned: 60,
       daysAgoDue: -25,
       bankName: 'Commercial Bank of Ethiopia (CBE)',
       bankReceiptNumber: 'CBE-3311890',
       paymentAmount: 63200,
       daysAgoPaid: 35,
-      bankReceiptReceivedBy: 'Sara M.',
+      receivedByEmail: t2a.email,
       governmentReceiptNumber: 'GR-2026-0035',
-      governmentReceiptIssuedBy: 'Sara M.',
+      issuedByEmail: t2a.email,
       daysAgoIssued: 34,
     },
-    // CANCELLED — (1 case)
+    // CANCELLED
     {
       tin: 'BT-0003-2026',
       fiscalYear: '2025/2026',
       period: 'Q3',
       taxType: 'Individual Income Tax',
       amountDue: 9800,
-      assignedBy: 'Alemu T.',
+      assignedByEmail: t1b.email,
       daysAgoAssigned: 50,
       daysAgoDue: -10,
     },
@@ -179,15 +195,16 @@ async function main() {
       continue
     }
 
+    const assignedBy = byEmail[def.assignedByEmail]
+    const receivedBy = def.receivedByEmail ? byEmail[def.receivedByEmail] : null
+    const issuedBy = def.issuedByEmail ? byEmail[def.issuedByEmail] : null
+
     const assignedAt = new Date(now - def.daysAgoAssigned * day)
     const dueDate = new Date(now + def.daysAgoDue * day)
 
-    // Determine final status based on which fields are filled
     let finalStatus = 'ASSIGNED'
     if (def.governmentReceiptNumber) finalStatus = 'COMPLETED'
     else if (def.bankReceiptNumber) finalStatus = 'BANK_RECEIPT_SUBMITTED'
-
-    // For the cancelled one (BT-0003-2026), keep status as CANCELLED
     if (def.tin === 'BT-0003-2026') finalStatus = 'CANCELLED'
 
     const assignment = await db.taxAssignment.create({
@@ -199,7 +216,8 @@ async function main() {
         taxType: def.taxType,
         description: def.description || null,
         amountDue: def.amountDue,
-        assignedBy: def.assignedBy,
+        assignedByStaffId: assignedBy?.id || null,
+        assignedByName: assignedBy?.fullName || 'Unknown',
         assignedAt,
         dueDate,
         status: finalStatus,
@@ -207,15 +225,21 @@ async function main() {
         bankReceiptNumber: def.bankReceiptNumber || null,
         paymentDate: def.daysAgoPaid ? new Date(now - def.daysAgoPaid * day) : null,
         paymentAmount: def.paymentAmount || null,
-        bankReceiptReceivedBy: def.bankReceiptReceivedBy || null,
+        bankReceiptReceivedByStaffId: receivedBy?.id || null,
+        bankReceiptReceivedByName: receivedBy?.fullName || null,
         bankReceiptReceivedAt: def.daysAgoPaid
           ? new Date(now - def.daysAgoPaid * day)
           : null,
         governmentReceiptNumber: def.governmentReceiptNumber || null,
-        governmentReceiptIssuedBy: def.governmentReceiptIssuedBy || null,
+        governmentReceiptIssuedByStaffId: issuedBy?.id || null,
+        governmentReceiptIssuedByName: issuedBy?.fullName || null,
         governmentReceiptIssuedAt: def.daysAgoIssued
           ? new Date(now - def.daysAgoIssued * day)
           : null,
+        disputed: !!def.disputed,
+        disputeReason: def.disputed ? def.disputeReason || null : null,
+        disputedAt: def.disputed ? new Date(now - (def.daysAgoPaid || 1) * day) : null,
+        disputedByStaffId: def.disputed ? (receivedBy?.id || null) : null,
         notes: finalStatus === 'CANCELLED' ? 'Cancelled: duplicate assignment' : null,
       },
     })
@@ -226,13 +250,13 @@ async function main() {
         assignmentId: assignment.id,
         action: 'ASSIGN',
         toStatus: 'ASSIGNED',
-        performedBy: def.assignedBy,
+        performedByStaffId: assignedBy?.id || null,
+        performedByName: assignedBy?.fullName || 'Unknown',
         note: `Tax of ETB ${def.amountDue.toLocaleString()} (${def.taxType}, ${def.fiscalYear} ${def.period}) assigned to ${tp.fullName}`,
         timestamp: assignedAt,
       },
     })
 
-    // History: BANK_RECEIPT_RECEIVED
     if (def.bankReceiptNumber) {
       await db.assignmentHistory.create({
         data: {
@@ -240,14 +264,29 @@ async function main() {
           action: 'BANK_RECEIPT_RECEIVED',
           fromStatus: 'ASSIGNED',
           toStatus: 'BANK_RECEIPT_SUBMITTED',
-          performedBy: def.bankReceiptReceivedBy || 'system',
+          performedByStaffId: receivedBy?.id || null,
+          performedByName: receivedBy?.fullName || 'Unknown',
           note: `Bank receipt received from tax payer (${def.bankReceiptNumber}, ${def.bankName}, ETB ${(def.paymentAmount || 0).toLocaleString()})`,
           timestamp: new Date(now - (def.daysAgoPaid || 0) * day),
         },
       })
     }
 
-    // History: ISSUE_GOVERNMENT_RECEIPT
+    if (def.disputed) {
+      await db.assignmentHistory.create({
+        data: {
+          assignmentId: assignment.id,
+          action: 'DISPUTE',
+          fromStatus: 'BANK_RECEIPT_SUBMITTED',
+          toStatus: 'BANK_RECEIPT_SUBMITTED',
+          performedByStaffId: receivedBy?.id || null,
+          performedByName: receivedBy?.fullName || 'Unknown',
+          note: `Marked as disputed: ${def.disputeReason}`,
+          timestamp: new Date(now - (def.daysAgoPaid || 1) * day + 3600000),
+        },
+      })
+    }
+
     if (def.governmentReceiptNumber) {
       await db.assignmentHistory.create({
         data: {
@@ -255,14 +294,14 @@ async function main() {
           action: 'ISSUE_GOVERNMENT_RECEIPT',
           fromStatus: 'BANK_RECEIPT_SUBMITTED',
           toStatus: 'COMPLETED',
-          performedBy: def.governmentReceiptIssuedBy || 'system',
+          performedByStaffId: issuedBy?.id || null,
+          performedByName: issuedBy?.fullName || 'Unknown',
           note: `Government receipt ${def.governmentReceiptNumber} issued to ${tp.fullName}. Process completed.`,
           timestamp: new Date(now - (def.daysAgoIssued || 0) * day),
         },
       })
     }
 
-    // History: CANCEL
     if (finalStatus === 'CANCELLED') {
       await db.assignmentHistory.create({
         data: {
@@ -270,14 +309,15 @@ async function main() {
           action: 'CANCEL',
           fromStatus: 'ASSIGNED',
           toStatus: 'CANCELLED',
-          performedBy: 'Leader',
+          performedByStaffId: assignedBy?.id || null,
+          performedByName: assignedBy?.fullName || 'Unknown',
           note: 'Cancelled: duplicate assignment',
           timestamp: new Date(now - (def.daysAgoAssigned - 5) * day),
         },
       })
     }
 
-    console.log(`Created ${referenceNo} for ${tp.fullName} (${finalStatus})`)
+    console.log(`Created ${referenceNo} for ${tp.fullName} (${finalStatus}${def.disputed ? ', disputed' : ''})`)
   }
   console.log('Done.')
 }

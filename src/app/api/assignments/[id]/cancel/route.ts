@@ -7,7 +7,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params
   const body = await req.json()
-  const { reason, performedBy } = body
+  const { reason, performedByStaffId, performedByName } = body
 
   const existing = await db.taxAssignment.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -18,6 +18,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       { status: 400 }
     )
   }
+
+  // Look up staff name
+  let staffName = performedByName
+  if (!staffName && performedByStaffId) {
+    const s = await db.staff.findUnique({ where: { id: performedByStaffId } })
+    if (s) staffName = s.fullName
+  }
+  if (!staffName) staffName = 'Unknown'
 
   const fromStatus = existing.status
   const updated = await db.taxAssignment.update({
@@ -32,7 +40,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       action: 'CANCEL',
       fromStatus,
       toStatus: 'CANCELLED',
-      performedBy: performedBy || 'system',
+      performedByStaffId: performedByStaffId || null,
+      performedByName: staffName,
       note: reason || 'Assignment cancelled',
     },
   })

@@ -52,12 +52,11 @@ import {
   CheckCircle2,
   XCircle,
   History,
-  Banknote,
   FileText,
-  Building2,
-  User,
-  Calendar,
-  Landmark,
+  AlertTriangle,
+  Paperclip,
+  Download,
+  Trash2,
 } from 'lucide-react'
 
 interface Assignment {
@@ -69,29 +68,31 @@ interface Assignment {
   taxType: string
   description?: string | null
   amountDue: number
-  assignedBy: string
-  assignedAt: string
   dueDate?: string | null
   status: AssignmentStatus
+  disputed: boolean
+  disputeReason?: string | null
   bankName?: string | null
   bankReceiptNumber?: string | null
   paymentDate?: string | null
   paymentAmount?: number | null
   bankReceiptNote?: string | null
-  bankReceiptReceivedBy?: string | null
-  bankReceiptReceivedAt?: string | null
   governmentReceiptNumber?: string | null
-  governmentReceiptIssuedBy?: string | null
   governmentReceiptIssuedAt?: string | null
+  governmentReceiptIssuedByName?: string | null
   governmentReceiptNote?: string | null
   notes?: string | null
+  assignedByName: string
+  bankReceiptReceivedByName?: string | null
   taxPayer: {
     id: string
     tin: string
     fullName: string
     category: string
     phone?: string | null
+    woreda?: { id: string; code: string; name: string } | null
   }
+  assignedBy?: { id: string; fullName: string } | null
 }
 
 interface TaxPayerOption {
@@ -100,6 +101,15 @@ interface TaxPayerOption {
   fullName: string
   category: string
   active: boolean
+  blocked: boolean
+}
+
+interface Attachment {
+  id: string
+  fileName: string
+  mimeType: string
+  fileSize: number
+  uploadedAt: string
 }
 
 const emptyForm = {
@@ -120,10 +130,18 @@ const emptyBankForm = {
   bankReceiptNote: '',
 }
 
+interface SelectedFile {
+  fileName: string
+  mimeType: string
+  fileSize: number
+  content: string
+}
+
 export function Assignments() {
-  const { role, staffName } = useRole()
+  const { role, staffId, staffName } = useRole()
   const canAssign = role === 'LEADER' || role === 'TEAM_1_ASSIGNMENT'
   const canReceive = role === 'LEADER' || role === 'TEAM_2_FINANCE'
+  const isLeader = role === 'LEADER'
   const { toast } = useToast()
 
   const [list, setList] = useState<Assignment[]>([])
@@ -139,19 +157,20 @@ export function Assignments() {
   const [bankAssignment, setBankAssignment] = useState<Assignment | null>(null)
   const [bankForm, setBankForm] = useState(emptyBankForm)
   const [bankSaving, setBankSaving] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<SelectedFile[]>([])
 
   const [govAssignment, setGovAssignment] = useState<Assignment | null>(null)
   const [govReceiptNo, setGovReceiptNo] = useState('')
   const [govNote, setGovNote] = useState('')
   const [govSaving, setGovSaving] = useState(false)
 
-  const [detail, setDetail] = useState<Assignment | null>(null)
+  const [detail, setDetail] = useState<Assignment | (Assignment & { attachments?: Attachment[] }) | null>(null)
   const [detailHistory, setDetailHistory] = useState<Array<{
     id: string
     action: string
     fromStatus: string | null
     toStatus: string | null
-    performedBy: string
+    performedByName: string
     note: string | null
     timestamp: string
   }> | null>(null)
@@ -191,6 +210,7 @@ export function Assignments() {
       paymentAmount: String(a.amountDue),
       paymentDate: new Date().toISOString().split('T')[0],
     })
+    setPendingFiles([])
   }
 
   const openGovReceipt = (a: Assignment) => {
@@ -215,6 +235,71 @@ export function Assignments() {
     }
   }
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const max = 5 * 1024 * 1024 // 5 MB per file
+    const newOnes: SelectedFile[] = []
+    for (const f of files) {
+      if (f.size > max) {
+        toast({
+          title: 'File too large',
+          description: `${f.name} is ${(f.size / 1024 / 1024).toFixed(1)} MB. Max 5 MB.`,
+          variant: 'destructive',
+        })
+        continue
+      }
+      const content = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => {
+          const result = r.result as string
+          // strip "data:application/pdf;base64," prefix
+          const base64 = result.split(',')[1] || result
+          resolve(base64)
+        }
+        r.onerror = reject
+        r.readAsDataURL(f)
+      })
+      newOnes.push({
+        fileName: f.name,
+        mimeType: f.type || 'application/octet-stream',
+        fileSize: f.size,
+        content,
+      })
+    }
+    setPendingFiles((prev) => [...prev, ...newOnes])
+    e.target.value = ''
+  }
+
+  const removePendingFile = (idx: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const downloadAttachment = async (attId: string, fileName: string, mimeType: string) => {
+    const res = await fetch(`/api/attachments/${attId}`)
+    const data = await res.json()
+    // Convert base64 to blob and trigger download
+    const byteChars = atob(data.content)
+    const byteNumbers = new Array(byteChars.length)
+    for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i)
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const deleteAttachment = async (attId: string) => {
+    if (!confirm('Delete this attachment?')) return
+    await fetch(`/api/attachments/${attId}`, { method: 'DELETE' })
+    toast({ title: 'Attachment deleted' })
+    if (detail) openDetail(detail)
+  }
+
   const save = async () => {
     if (!form.taxPayerId || !form.amountDue) {
       toast({
@@ -232,7 +317,8 @@ export function Assignments() {
         body: JSON.stringify({
           ...form,
           amountDue: Number(form.amountDue),
-          assignedBy: staffName,
+          assignedByStaffId: staffId,
+          assignedByName: staffName,
         }),
       })
       const data = await res.json()
@@ -269,14 +355,18 @@ export function Assignments() {
         body: JSON.stringify({
           ...bankForm,
           paymentAmount: Number(bankForm.paymentAmount),
-          performedBy: staffName,
+          performedByStaffId: staffId,
+          performedByName: staffName,
+          attachments: pendingFiles,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
       toast({
         title: 'Bank receipt recorded',
-        description: `${bankAssignment.referenceNo} — awaiting government receipt issuance.`,
+        description: `${bankAssignment.referenceNo} — awaiting government receipt issuance.${
+          pendingFiles.length > 0 ? ` ${pendingFiles.length} attachment(s) saved.` : ''
+        }`,
       })
       setBankAssignment(null)
       load()
@@ -298,7 +388,8 @@ export function Assignments() {
         body: JSON.stringify({
           governmentReceiptNumber: govReceiptNo,
           governmentReceiptNote: govNote,
-          performedBy: staffName,
+          performedByStaffId: staffId,
+          performedByName: staffName,
         }),
       })
       const data = await res.json()
@@ -323,11 +414,47 @@ export function Assignments() {
     const res = await fetch(`/api/assignments/${a.id}/cancel`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason, performedBy: staffName }),
+      body: JSON.stringify({
+        reason,
+        performedByStaffId: staffId,
+        performedByName: staffName,
+      }),
     })
     if (res.ok) {
       toast({ title: 'Assignment cancelled', description: a.referenceNo })
       load()
+    } else {
+      const d = await res.json()
+      toast({ title: 'Error', description: d.error, variant: 'destructive' })
+    }
+  }
+
+  const toggleDispute = async (a: Assignment) => {
+    const newDisputed = !a.disputed
+    let reason: string | null = a.disputeReason || ''
+    if (newDisputed) {
+      reason = prompt('Mark as disputed. Enter reason:')
+      if (reason === null) return
+    } else {
+      if (!confirm('Mark dispute as resolved?')) return
+    }
+    const res = await fetch(`/api/assignments/${a.id}/dispute`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        disputed: newDisputed,
+        disputeReason: reason,
+        performedByStaffId: staffId,
+        performedByName: staffName,
+      }),
+    })
+    if (res.ok) {
+      toast({
+        title: newDisputed ? 'Marked as disputed' : 'Dispute resolved',
+        description: a.referenceNo,
+      })
+      load()
+      if (detail && detail.id === a.id) openDetail(a)
     } else {
       const d = await res.json()
       toast({ title: 'Error', description: d.error, variant: 'destructive' })
@@ -439,11 +566,19 @@ export function Assignments() {
                           >
                             {m.label}
                           </span>
+                          {a.disputed && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-900/30 px-2 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300">
+                              <AlertTriangle className="h-3 w-3" /> Disputed
+                            </span>
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold">{a.taxPayer.fullName}</p>
                           <p className="text-xs text-muted-foreground font-mono">
                             {a.taxPayer.tin} · {categoryLabel(a.taxPayer.category)}
+                            {a.taxPayer.woreda && (
+                              <> · Woreda {a.taxPayer.woreda.code}</>
+                            )}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -452,6 +587,8 @@ export function Assignments() {
                           <span>{a.fiscalYear} {a.period}</span>
                           <span>·</span>
                           <span>Due: {fmtDateShort(a.dueDate)}</span>
+                          <span>·</span>
+                          <span>by {a.assignedByName}</span>
                           {a.bankReceiptNumber && (
                             <>
                               <span>·</span>
@@ -498,11 +635,22 @@ export function Assignments() {
                               variant="default"
                               className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
                               onClick={() => openGovReceipt(a)}
+                              disabled={a.disputed && !isLeader}
                             >
                               <CheckCircle2 className="h-3.5 w-3.5" /> Issue Govt Receipt
                             </Button>
                           )}
-                          {(role === 'LEADER') && a.status !== 'COMPLETED' && a.status !== 'CANCELLED' && (
+                          {isLeader && a.status !== 'COMPLETED' && a.status !== 'CANCELLED' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => toggleDispute(a)}
+                              title={a.disputed ? 'Resolve dispute' : 'Mark as disputed'}
+                            >
+                              <AlertTriangle className={`h-3.5 w-3.5 ${a.disputed ? 'text-rose-600' : ''}`} />
+                            </Button>
+                          )}
+                          {isLeader && a.status !== 'COMPLETED' && a.status !== 'CANCELLED' && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -554,7 +702,7 @@ export function Assignments() {
                   <SelectValue placeholder="Select a tax payer..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {taxpayers.map((tp) => (
+                  {taxpayers.filter((tp) => !tp.blocked).map((tp) => (
                     <SelectItem key={tp.id} value={tp.id}>
                       <span className="font-mono text-xs mr-2">{tp.tin}</span>
                       {tp.fullName}
@@ -565,6 +713,11 @@ export function Assignments() {
                   ))}
                 </SelectContent>
               </Select>
+              {taxpayers.some((tp) => tp.blocked) && (
+                <p className="text-xs text-rose-600 dark:text-rose-400">
+                  Blocked tax payers are hidden from this list.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -673,14 +826,14 @@ export function Assignments() {
 
       {/* Bank receipt dialog */}
       <Dialog open={!!bankAssignment} onOpenChange={(o) => !o && setBankAssignment(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-primary" />
               Receive Bank Receipt
             </DialogTitle>
             <DialogDescription>
-              Tax payer returned with a bank receipt. Record the payment details below.
+              Tax payer returned with a bank receipt. Record the payment details below. You may attach the scanned bank receipt (max 5 MB per file).
             </DialogDescription>
           </DialogHeader>
 
@@ -759,6 +912,56 @@ export function Assignments() {
                 rows={2}
                 placeholder="Any remark about this payment"
               />
+            </div>
+
+            {/* File attachments */}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Bank Receipt Attachment(s) — optional</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,application/pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="bank-receipt-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById('bank-receipt-upload')?.click()}
+                  className="gap-2"
+                >
+                  <Paperclip className="h-4 w-4" /> Choose file(s)
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Max 5 MB per file (image/PDF)
+                </span>
+              </div>
+              {pendingFiles.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {pendingFiles.map((f, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-center justify-between text-xs rounded-md border px-2 py-1.5"
+                    >
+                      <span className="truncate flex items-center gap-1.5">
+                        <Paperclip className="h-3 w-3 text-muted-foreground" />
+                        {f.fileName}{' '}
+                        <span className="text-muted-foreground">
+                          ({(f.fileSize / 1024).toFixed(1)} KB)
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => removePendingFile(idx)}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 
@@ -876,6 +1079,17 @@ export function Assignments() {
               </SheetHeader>
 
               <div className="px-4 pb-6 space-y-4">
+                {detail.disputed && (
+                  <div className="rounded-md border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-3 text-sm">
+                    <p className="flex items-center gap-2 font-medium text-rose-700 dark:text-rose-300">
+                      <AlertTriangle className="h-4 w-4" /> Under dispute
+                    </p>
+                    <p className="text-xs text-rose-700 dark:text-rose-300 mt-1">
+                      {detail.disputeReason || 'No reason given.'}
+                    </p>
+                  </div>
+                )}
+
                 {/* Workflow progress bar */}
                 <WorkflowProgress status={detail.status} />
 
@@ -905,6 +1119,10 @@ export function Assignments() {
                         <p className="text-xs text-muted-foreground">Due Date</p>
                         <p className="font-medium">{fmtDateShort(detail.dueDate)}</p>
                       </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Assigned by</p>
+                        <p className="font-medium">{detail.assignedByName}</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -912,7 +1130,7 @@ export function Assignments() {
                 {/* Bank receipt info */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Landmark className="h-4 w-4 text-sky-500" /> Bank Payment
+                    <Receipt className="h-4 w-4 text-sky-500" /> Bank Payment
                   </h4>
                   <Card>
                     <CardContent className="p-4 text-sm">
@@ -943,16 +1161,9 @@ export function Assignments() {
                           <div className="col-span-2">
                             <p className="text-xs text-muted-foreground">Received by</p>
                             <p className="font-medium">
-                              {detail.bankReceiptReceivedBy || '—'} ·{' '}
-                              {fmtDate(detail.bankReceiptReceivedAt)}
+                              {detail.bankReceiptReceivedByName || '—'}
                             </p>
                           </div>
-                          {detail.bankReceiptNote && (
-                            <div className="col-span-2">
-                              <p className="text-xs text-muted-foreground">Note</p>
-                              <p className="text-sm">{detail.bankReceiptNote}</p>
-                            </div>
-                          )}
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">
@@ -962,6 +1173,54 @@ export function Assignments() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Bank receipt attachments */}
+                {detail.attachments && detail.attachments.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" /> Bank Receipt Attachments ({detail.attachments.length})
+                    </h4>
+                    <ul className="space-y-1.5">
+                      {detail.attachments.map((att) => (
+                        <li
+                          key={att.id}
+                          className="flex items-center justify-between gap-2 rounded-md border border-border/60 p-2 text-xs"
+                        >
+                          <span className="truncate flex items-center gap-1.5">
+                            <Paperclip className="h-3 w-3 text-muted-foreground" />
+                            {att.fileName}{' '}
+                            <span className="text-muted-foreground">
+                              ({(att.fileSize / 1024).toFixed(1)} KB)
+                            </span>
+                          </span>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                downloadAttachment(att.id, att.fileName, att.mimeType)
+                              }
+                              title="Download"
+                            >
+                              <Download className="h-3 w-3" />
+                            </Button>
+                            {isLeader && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => deleteAttachment(att.id)}
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Government receipt info */}
                 <div>
@@ -987,15 +1246,9 @@ export function Assignments() {
                           <div className="col-span-2">
                             <p className="text-xs text-muted-foreground">Issued by</p>
                             <p className="font-medium">
-                              {detail.governmentReceiptIssuedBy || '—'}
+                              {detail.governmentReceiptIssuedByName || '—'}
                             </p>
                           </div>
-                          {detail.governmentReceiptNote && (
-                            <div className="col-span-2">
-                              <p className="text-xs text-muted-foreground">Note</p>
-                              <p className="text-sm">{detail.governmentReceiptNote}</p>
-                            </div>
-                          )}
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">
@@ -1033,7 +1286,7 @@ export function Assignments() {
                               </p>
                             )}
                             <p className="text-xs text-muted-foreground mt-1">
-                              {fmtDate(h.timestamp)} · by {h.performedBy}
+                              {fmtDate(h.timestamp)} · by {h.performedByName}
                             </p>
                           </div>
                         </li>
@@ -1063,11 +1316,22 @@ export function Assignments() {
                           openGovReceipt(detail)
                         }}
                         className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                        disabled={detail.disputed && !isLeader}
                       >
                         <CheckCircle2 className="h-4 w-4" /> Issue Govt Receipt
                       </Button>
                     )}
-                    {role === 'LEADER' && (
+                    {isLeader && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => toggleDispute(detail)}
+                        className="gap-2"
+                      >
+                        <AlertTriangle className={`h-4 w-4 ${detail.disputed ? 'text-rose-600' : ''}`} />
+                        {detail.disputed ? 'Resolve Dispute' : 'Mark Disputed'}
+                      </Button>
+                    )}
+                    {isLeader && (
                       <Button
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
@@ -1154,6 +1418,10 @@ function actionLabel(a: string): string {
       return 'Cancelled'
     case 'EDIT':
       return 'Assignment edited'
+    case 'DISPUTE':
+      return 'Marked as disputed'
+    case 'UNDISPUTE':
+      return 'Dispute resolved'
     default:
       return a
   }

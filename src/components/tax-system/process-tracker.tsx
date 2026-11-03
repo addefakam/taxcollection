@@ -38,15 +38,18 @@ interface Assignment {
   amountDue: number
   paymentAmount?: number | null
   status: AssignmentStatus
+  disputed: boolean
   assignedAt: string
   dueDate?: string | null
   bankReceiptNumber?: string | null
   bankName?: string | null
   governmentReceiptNumber?: string | null
+  assignedByName: string
   taxPayer: {
     tin: string
     fullName: string
     category: string
+    woreda?: { code: string; name: string } | null
   }
 }
 
@@ -289,7 +292,7 @@ function AssignmentCard({
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="rounded-md border border-border/70 bg-card p-2.5 hover:shadow-sm transition-shadow">
+      <div className={`rounded-md border bg-card p-2.5 hover:shadow-sm transition-shadow ${a.disputed ? 'border-rose-300 dark:border-rose-800' : 'border-border/70'}`}>
         <div className="flex items-center justify-between mb-1">
           <button
             onClick={copyRef}
@@ -298,14 +301,23 @@ function AssignmentCard({
           >
             {a.referenceNo}
           </button>
-          <Badge variant="outline" className="text-[9px] px-1 py-0">
-            {categoryLabel(a.taxPayer.category).slice(0, 3).toUpperCase()}
-          </Badge>
+          {a.disputed ? (
+            <Badge variant="destructive" className="text-[9px] px-1 py-0">
+              DISPUTED
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[9px] px-1 py-0">
+              {categoryLabel(a.taxPayer.category).slice(0, 3).toUpperCase()}
+            </Badge>
+          )}
         </div>
         <p className="text-sm font-medium leading-tight truncate">
           {a.taxPayer.fullName}
         </p>
-        <p className="text-[11px] text-muted-foreground font-mono">{a.taxPayer.tin}</p>
+        <p className="text-[11px] text-muted-foreground font-mono">
+          {a.taxPayer.tin}
+          {a.taxPayer.woreda && <> · W{a.taxPayer.woreda.code}</>}
+        </p>
         <div className="mt-2 space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">{a.taxType}</span>
