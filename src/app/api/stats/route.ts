@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getSession } from '@/lib/auth'
 
-// GET /api/stats - leader dashboard summary
+// GET /api/stats - leader dashboard summary  (any logged-in staff)
 export async function GET() {
+  const user = await getSession()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   const [
     totalTaxPayers,
     activeTaxPayers,
@@ -113,5 +117,6 @@ export async function GET() {
     byWoreda,
     recentAssignments,
     recentHistory,
+    currentUser: user,
   })
 }

@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getSession, requireRole } from '@/lib/auth'
 
 // GET /api/assignments?status=...&q=...&taxPayerId=...&disputed=...
+// Any logged-in staff can view.
 export async function GET(req: NextRequest) {
+  const user = await getSession()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || ''
   const q = searchParams.get('q')?.trim() || ''
@@ -39,8 +44,16 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(assignments)
 }
 
-// POST /api/assignments  (Team 1 creates a new tax assignment)
+// POST /api/assignments  (Leader or Team 1)
 export async function POST(req: NextRequest) {
+  let user
+  try {
+    user = await requireRole('LEADER', 'TEAM_1_ASSIGNMENT')
+  } catch (e) {
+    if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
+    throw e
+  }
+
   const body = await req.json()
   const {
     taxPayerId,
@@ -49,23 +62,12 @@ export async function POST(req: NextRequest) {
     taxType,
     description,
     amountDue,
-    assignedByStaffId,
-    assignedByName,
     dueDate,
   } = body
 
-  // Look up staff member if only ID given
-  let staffId = assignedByStaffId
-  let staffName = assignedByName
-  if (!staffName && staffId) {
-    const s = await db.staff.findUnique({ where: { id: staffId } })
-    if (s) staffName = s.fullName
-  }
-  if (!staffName) staffName = 'Unknown'
-
   if (!taxPayerId || !fiscalYear || !period || !taxType || !amountDue) {
     return NextResponse.json(
-      { error: 'taxPayerId, fiscalYear, period, taxType, amountDue, assignedByStaffId are required' },
+      { error: 'taxPayerId, fiscalYear, period, taxType, amountDue are required' },
       { status: 400 }
     )
   }
@@ -96,8 +98,8 @@ export async function POST(req: NextRequest) {
       taxType,
       description,
       amountDue: Number(amountDue),
-      assignedByStaffId: staffId || null,
-      assignedByName: staffName,
+      assignedByStaffId: user.id,
+      assignedByName: user.fullName,
       dueDate: dueDate ? new Date(dueDate) : null,
       status: 'ASSIGNED',
     },
@@ -112,8 +114,8 @@ export async function POST(req: NextRequest) {
       assignmentId: assignment.id,
       action: 'ASSIGN',
       toStatus: 'ASSIGNED',
-      performedByStaffId: staffId || null,
-      performedByName: staffName,
+      performedByStaffId: user.id,
+      performedByName: user.fullName,
       note: `Tax of ETB ${Number(amountDue).toLocaleString()} (${taxType}, ${fiscalYear} ${period}) assigned to ${assignment.taxPayer.fullName}`,
     },
   })

@@ -1,25 +1,30 @@
 'use client'
 
-import { useState } from 'react'
-import { useRole } from './role-context'
-import { ROLES, Role } from './lib'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Building2, ChevronDown, Shield, User, Users } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
+import { Building2, ChevronDown, LogOut, KeyRound, Mail, Shield } from 'lucide-react'
+import { useState } from 'react'
+import type { SessionUser } from './app-shell'
+import { ROLES, Role } from './lib'
 
 const ROLE_LABEL: Record<Role, string> = {
   LEADER: 'Finance Leader',
@@ -27,120 +32,177 @@ const ROLE_LABEL: Record<Role, string> = {
   TEAM_2_FINANCE: 'Team 2 — Finance Office',
 }
 
-export function Header() {
-  const { staffList, staffId, setStaffId, role, staffName } = useRole()
-  const [open, setOpen] = useState(false)
+interface HeaderProps {
+  user: SessionUser
+  onLogout: () => void
+}
 
-  // Group staff by role for easier selection
-  const grouped: Record<Role, typeof staffList> = {
-    LEADER: staffList.filter((s) => s.role === 'LEADER'),
-    TEAM_1_ASSIGNMENT: staffList.filter((s) => s.role === 'TEAM_1_ASSIGNMENT'),
-    TEAM_2_FINANCE: staffList.filter((s) => s.role === 'TEAM_2_FINANCE'),
+export function Header({ user, onLogout }: HeaderProps) {
+  const { toast } = useToast()
+  const [pwOpen, setPwOpen] = useState(false)
+  const [curPw, setCurPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+
+  const changePassword = async () => {
+    if (newPw.length < 8) {
+      toast({
+        title: 'Password too short',
+        description: 'New password must be at least 8 characters.',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (newPw !== confirmPw) {
+      toast({
+        title: 'Passwords do not match',
+        description: 'Please re-enter the same password twice.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setPwSaving(true)
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: curPw,
+          newPassword: newPw,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      toast({
+        title: 'Password changed',
+        description: 'You can continue using the system normally.',
+      })
+      setPwOpen(false)
+      setCurPw('')
+      setNewPw('')
+      setConfirmPw('')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed'
+      toast({ title: 'Error', description: msg, variant: 'destructive' })
+    } finally {
+      setPwSaving(false)
+    }
   }
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 flex items-center gap-3 sm:gap-6 flex-wrap">
-        {/* Logo + title */}
-        <div className="flex items-center gap-3 mr-auto">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <Building2 className="h-5 w-5" />
+    <>
+      <header className="sticky top-0 z-30 w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 flex items-center gap-3 sm:gap-6 flex-wrap">
+          {/* Logo + title */}
+          <div className="flex items-center gap-3 mr-auto">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div className="leading-tight">
+              <h1 className="text-base sm:text-lg font-semibold tracking-tight">
+                Bishoftu Finance
+              </h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">
+                Tax Collection Process Control
+              </p>
+            </div>
           </div>
-          <div className="leading-tight">
-            <h1 className="text-base sm:text-lg font-semibold tracking-tight">
-              Bishoftu Finance
-            </h1>
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              Tax Collection Process Control
-            </p>
-          </div>
-        </div>
 
-        {/* Staff selector dropdown */}
-        <div className="flex items-center gap-2">
-          <DropdownMenu open={open} onOpenChange={setOpen}>
+          {/* User menu */}
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2 h-9">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                  {(staffName || '?').charAt(0).toUpperCase()}
+                  {user.fullName.charAt(0).toUpperCase()}
                 </div>
-                <span className="hidden sm:inline max-w-[140px] truncate">{staffName}</span>
+                <span className="hidden sm:inline max-w-[140px] truncate">
+                  {user.fullName}
+                </span>
                 <Badge variant="secondary" className="text-[10px] hidden md:inline">
-                  {ROLE_LABEL[role]}
+                  {ROLE_LABEL[user.role]}
                 </Badge>
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72">
-              <DropdownMenuLabel className="flex items-center gap-2">
-                <Users className="h-4 w-4" /> Sign in as staff member
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="flex flex-col gap-1">
+                <span>{user.fullName}</span>
+                <span className="text-xs text-muted-foreground font-normal flex items-center gap-1">
+                  <Mail className="h-3 w-3" /> {user.email}
+                </span>
+                <Badge variant="secondary" className="text-[10px] w-fit mt-1">
+                  <Shield className="h-3 w-3 mr-1" />
+                  {ROLES[user.role].label}
+                </Badge>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <div className="max-h-80 overflow-y-auto p-1">
-                {staffList.length === 0 ? (
-                  <p className="text-xs text-muted-foreground p-3 text-center">
-                    No staff loaded. Run the seed script.
-                  </p>
-                ) : (
-                  (Object.keys(grouped) as Role[]).map((r) =>
-                    grouped[r].length === 0 ? null : (
-                      <div key={r} className="mb-2">
-                        <p className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                          {r === 'LEADER' && <Shield className="h-3 w-3" />}
-                          {r === 'TEAM_1_ASSIGNMENT' && <User className="h-3 w-3" />}
-                          {r === 'TEAM_2_FINANCE' && <Building2 className="h-3 w-3" />}
-                          {ROLE_LABEL[r]}
-                        </p>
-                        {grouped[r].map((s) => (
-                          <button
-                            key={s.id}
-                            onClick={() => {
-                              setStaffId(s.id)
-                              setOpen(false)
-                            }}
-                            className={`flex items-center justify-between w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-sm ${
-                              staffId === s.id ? 'bg-accent' : ''
-                            }`}
-                          >
-                            <span className="truncate">{s.fullName}</span>
-                            {staffId === s.id && (
-                              <span className="text-[10px] text-primary font-medium">
-                                ✓ active
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )
-                  )
-                )}
-              </div>
+              <DropdownMenuItem onClick={() => setPwOpen(true)} className="gap-2 cursor-pointer">
+                <KeyRound className="h-4 w-4" /> Change password
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onLogout}
+                className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4" /> Sign out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-    </header>
-  )
-}
+      </header>
 
-// Keep Select-based fallback export for other code that might import ROLES
-export function RoleSelect({
-  value,
-  onValueChange,
-}: {
-  value: Role
-  onValueChange: (r: Role) => void
-}) {
-  return (
-    <Select value={value} onValueChange={(v) => onValueChange(v as Role)}>
-      <SelectTrigger className="w-[200px] sm:w-[260px]">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="LEADER">Finance Leader</SelectItem>
-        <SelectItem value="TEAM_1_ASSIGNMENT">Team 1 — Assignment</SelectItem>
-        <SelectItem value="TEAM_2_FINANCE">Team 2 — Finance Office</SelectItem>
-      </SelectContent>
-    </Select>
+      {/* Change password dialog */}
+      <Dialog open={pwOpen} onOpenChange={setPwOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              Change Password
+            </DialogTitle>
+            <DialogDescription>
+              Pick a new password. It must be at least 8 characters long.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Current Password</Label>
+              <Input
+                type="password"
+                value={curPw}
+                onChange={(e) => setCurPw(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>New Password</Label>
+              <Input
+                type="password"
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Confirm New Password</Label>
+              <Input
+                type="password"
+                value={confirmPw}
+                onChange={(e) => setConfirmPw(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPwOpen(false)} disabled={pwSaving}>
+              Cancel
+            </Button>
+            <Button onClick={changePassword} disabled={pwSaving || !curPw || !newPw}>
+              {pwSaving ? 'Saving…' : 'Change Password'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

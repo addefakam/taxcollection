@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// PATCH /api/assignments/[id]/cancel
+// PATCH /api/assignments/[id]/cancel  (Leader only)
 export async function PATCH(req: NextRequest, { params }: Params) {
+  let user
+  try {
+    user = await requireRole('LEADER')
+  } catch (e) {
+    if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
+    throw e
+  }
+
   const { id } = await params
   const body = await req.json()
-  const { reason, performedByStaffId, performedByName } = body
+  const { reason } = body
 
   const existing = await db.taxAssignment.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -18,14 +27,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       { status: 400 }
     )
   }
-
-  // Look up staff name
-  let staffName = performedByName
-  if (!staffName && performedByStaffId) {
-    const s = await db.staff.findUnique({ where: { id: performedByStaffId } })
-    if (s) staffName = s.fullName
-  }
-  if (!staffName) staffName = 'Unknown'
 
   const fromStatus = existing.status
   const updated = await db.taxAssignment.update({
@@ -40,8 +41,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       action: 'CANCEL',
       fromStatus,
       toStatus: 'CANCELLED',
-      performedByStaffId: performedByStaffId || null,
-      performedByName: staffName,
+      performedByStaffId: user.id,
+      performedByName: user.fullName,
       note: reason || 'Assignment cancelled',
     },
   })

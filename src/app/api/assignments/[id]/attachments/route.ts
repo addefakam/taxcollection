@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getSession, requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// GET /api/assignments/[id]/attachments  - list attachments metadata
+// GET /api/assignments/[id]/attachments  (any logged-in staff)
+// Returns metadata only (no base64 content) — fetch via /api/attachments/[id] for download
 export async function GET(_req: NextRequest, { params }: Params) {
+  const user = await getSession()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   const { id } = await params
   const attachments = await db.bankReceiptAttachment.findMany({
     where: { assignmentId: id },
@@ -16,18 +21,25 @@ export async function GET(_req: NextRequest, { params }: Params) {
       fileSize: true,
       uploadedByStaffId: true,
       uploadedAt: true,
-      // Do NOT return content here (could be large); fetch via [attachId] route
     },
   })
   return NextResponse.json(attachments)
 }
 
-// POST /api/assignments/[id]/attachments  - upload new attachment
-// Body: { fileName, mimeType, content (base64), uploadedByStaffId }
+// POST /api/assignments/[id]/attachments  (Leader or Team 2)
+// Body: { fileName, mimeType, content (base64) }
 export async function POST(req: NextRequest, { params }: Params) {
+  let user
+  try {
+    user = await requireRole('LEADER', 'TEAM_2_FINANCE')
+  } catch (e) {
+    if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
+    throw e
+  }
+
   const { id } = await params
   const body = await req.json()
-  const { fileName, mimeType, content, uploadedByStaffId } = body
+  const { fileName, mimeType, content } = body
 
   if (!fileName || !mimeType || !content) {
     return NextResponse.json(
@@ -46,7 +58,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       mimeType,
       fileSize,
       content,
-      uploadedByStaffId: uploadedByStaffId || null,
+      uploadedByStaffId: user.id,
     },
   })
 

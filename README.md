@@ -67,7 +67,7 @@ Six models in Postgres:
 bun install
 ```
 
-### 2. Configure your Neon PostgreSQL database
+### 2. Configure your Neon PostgreSQL database + session secret
 
 1. Create a free project at https://console.neon.tech
 2. Click "Connection string" → copy the **Pooled connection** URL
@@ -77,11 +77,15 @@ bun install
    cp .env.example .env
    ```
 
-4. Edit `.env` and replace `DATABASE_URL` with your Neon connection string. It should look like:
-
-   ```
-   DATABASE_URL="postgresql://neondb_owner:npg_xxx@ep-cool-name-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
-   ```
+4. Edit `.env`:
+   - Set `DATABASE_URL` to your Neon pooled connection string. It should look like:
+     ```
+     DATABASE_URL="postgresql://neondb_owner:npg_xxx@ep-cool-name-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+     ```
+   - Set `SESSION_SECRET` to a long random string (at least 32 characters). Generate one with:
+     ```bash
+     openssl rand -base64 48
+     ```
 
 ### 3. Push the schema to your Neon database
 
@@ -89,17 +93,25 @@ bun install
 bun run db:push
 ```
 
-This creates all tables. (Run `bun run db:push --force-reset` if you ever want to drop & recreate all data.)
+This creates all tables (Woreda, Staff, TaxPayer, TaxAssignment, BankReceiptAttachment, AssignmentHistory).
 
-### 4. Seed sample data (optional but recommended for first run)
+### 4. Seed sample data (creates the default Leader account)
 
 ```bash
-# Woredas, staff, and 10 sample tax payers
+# Woredas + staff (with passwords) + 10 sample tax payers
 bun run scripts/seed.ts
 
 # Sample tax assignments across all workflow stages
 bun run scripts/seed-assignments.ts
 ```
+
+The seed script will print the default Leader credentials:
+
+```
+LEADER LOGIN: leader@bishoftu.gov.et / Bishoftu@2026
+```
+
+⚠️ **Change this password immediately after first login** via the user menu → "Change password".
 
 ### 5. Run the dev server
 
@@ -107,7 +119,29 @@ bun run scripts/seed-assignments.ts
 bun run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000 — you'll be redirected to `/login`.
+
+## Authentication
+
+Every user must log in with email + password. Sessions are signed JWTs stored in httpOnly cookies (8-hour expiry).
+
+- The `Staff` model stores `passwordHash` (bcrypt, 10 rounds)
+- Every API route checks the session via `getSession()` or `requireRole(...)`
+- Permission matrix is enforced **server-side** (not just hidden in the UI):
+
+| Action | Leader | Team 1 — Assignment | Team 2 — Finance Office |
+|---|:---:|:---:|:---:|
+| View dashboard, registry, assignments | ✅ | ✅ | ✅ |
+| Add / edit / deactivate tax payers | ✅ | ✅ | — |
+| Block / unblock tax payers | ✅ | — | — |
+| Create new assignment | ✅ | ✅ | — |
+| Receive bank receipt (+ attachments) | ✅ | — | ✅ |
+| Issue government receipt | ✅ | — | ✅ |
+| Issue govt receipt while disputed | ✅ | — | — |
+| Mark / resolve dispute | ✅ | — | — |
+| Cancel assignment | ✅ | — | — |
+| Delete attachments | ✅ | — | — |
+| Manage staff (add, edit, reset password, deactivate) | ✅ | — | — |
 
 ## Production deployment
 
@@ -125,44 +159,46 @@ For Vercel + Neon:
 prisma/
   schema.prisma         # Postgres schema (Woreda, Staff, TaxPayer, TaxAssignment, BankReceiptAttachment, AssignmentHistory)
 
-src/app/api/
-  woredas/               # Woreda CRUD
-  staff/                 # Staff CRUD
-  taxpayers/             # Tax payer CRUD + /block endpoint
-  assignments/           # Assignment CRUD + /bank-receipt + /government-receipt + /cancel + /dispute + /attachments
-  attachments/[id]/      # Download / delete attachment
-  stats/                 # Dashboard summary
+src/lib/
+  auth.ts               # JWT session helpers (getSession, requireSession, requireRole, createSession, destroySession)
+  password.ts           # bcrypt hash / verify
+  db.ts                 # Prisma client singleton
+
+src/app/
+  page.ts               # Server Component — checks session, redirects to /login if not authed
+  layout.tsx
+  login/page.tsx        # Login form
+  api/
+    auth/
+      login/            # POST email+password, creates session
+      logout/           # POST clears session
+      me/               # GET current session user
+      change-password/  # POST change own password
+    woredas/            # Woreda CRUD (Leader only for write)
+    staff/              # Staff CRUD (Leader only) + /reset-password
+    taxpayers/          # Tax payer CRUD + /block endpoint
+    assignments/        # Assignment CRUD + /bank-receipt + /government-receipt + /cancel + /dispute + /attachments
+    attachments/[id]/    # Download / delete attachment
+    stats/              # Dashboard summary
 
 src/components/tax-system/
-  lib.ts                 # Shared constants + formatters
-  role-context.tsx       # Staff identity provider (persisted in localStorage)
-  header.tsx             # Staff selector dropdown (replaces free-text name)
-  dashboard.tsx          # Leader dashboard with KPIs, woreda breakdown, staff count
-  taxpayers.tsx          # Tax payer registry with woreda / block / trade license
-  assignments.tsx        # Assignments with dispute flag + bank receipt attachments
-  process-tracker.tsx    # Kanban board with disputed indicators
+  app-shell.tsx         # Main layout + tab routing (wraps in RoleProvider)
+  role-context.tsx      # Session-based role provider (read-only)
+  header.tsx            # User menu (name, role, change password, logout)
+  dashboard.tsx         # Leader dashboard with KPIs, woreda breakdown, staff count
+  taxpayers.tsx         # Tax payer registry with woreda / block / trade license
+  assignments.tsx       # Assignments with dispute flag + bank receipt attachments
+  process-tracker.tsx   # Kanban board with disputed indicators
+  staff-management.tsx  # Leader-only: add staff, reset passwords, deactivate
 
 scripts/
-  seed.ts                # Woredas + staff + 10 tax payers
-  seed-assignments.ts    # 8 sample assignments across all statuses (incl. 1 disputed)
+  seed.ts               # Woredas + staff (with passwords) + 10 tax payers
+  seed-assignments.ts   # 8 sample assignments across all statuses (incl. 1 disputed)
 ```
 
 ## Roles & permissions
 
-| Action | Leader | Team 1 — Assignment | Team 2 — Finance Office |
-|---|:---:|:---:|:---:|
-| View dashboard, registry, assignments | ✅ | ✅ | ✅ |
-| Add / edit / deactivate tax payers | ✅ | ✅ | — |
-| Block / unblock tax payers | ✅ | — | — |
-| Create new assignment | ✅ | ✅ | — |
-| Receive bank receipt (+ attachments) | ✅ | — | ✅ |
-| Issue government receipt | ✅ | — | ✅ |
-| Mark / resolve dispute | ✅ | — | — |
-| Issue govt receipt while disputed | ✅ | — | — |
-| Cancel assignment | ✅ | — | — |
-| Delete attachments | ✅ | — | — |
-
-The role is determined by the selected staff member (stored in localStorage), so each team member logs in by picking their own name from the staff dropdown in the header.
+Permissions are enforced at the API level using `requireRole(...)` from `src/lib/auth.ts`. The role is determined by the logged-in staff member (from the JWT session, not from a free-text input). See the matrix above in the **Authentication** section.
 
 ## Development commands
 

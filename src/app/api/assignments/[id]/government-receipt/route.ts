@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// PATCH /api/assignments/[id]/government-receipt
+// PATCH /api/assignments/[id]/government-receipt  (Leader or Team 2)
 // Team 2 issues the official government receipt - final step
+// If assignment is disputed, only Leader can issue.
 export async function PATCH(req: NextRequest, { params }: Params) {
+  let user
+  try {
+    user = await requireRole('LEADER', 'TEAM_2_FINANCE')
+  } catch (e) {
+    if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
+    throw e
+  }
+
   const { id } = await params
   const body = await req.json()
-  const {
-    governmentReceiptNumber,
-    governmentReceiptNote,
-    performedByStaffId,
-    performedByName,
-  } = body
+  const { governmentReceiptNumber, governmentReceiptNote } = body
 
   const existing = await db.taxAssignment.findUnique({ where: { id } })
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -31,13 +36,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     )
   }
 
-  // Look up staff name
-  let staffName = performedByName
-  if (!staffName && performedByStaffId) {
-    const s = await db.staff.findUnique({ where: { id: performedByStaffId } })
-    if (s) staffName = s.fullName
+  // If disputed, only Leader can issue
+  if (existing.disputed && user.role !== 'LEADER') {
+    return NextResponse.json(
+      {
+        error:
+          'This assignment is marked as disputed. Only the Finance Leader can issue the government receipt.',
+      },
+      { status: 403 }
+    )
   }
-  if (!staffName) staffName = 'Unknown'
 
   // Auto-generate government receipt number if not provided
   const receiptNo =
@@ -49,8 +57,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     where: { id },
     data: {
       governmentReceiptNumber: receiptNo,
-      governmentReceiptIssuedByStaffId: performedByStaffId || null,
-      governmentReceiptIssuedByName: staffName,
+      governmentReceiptIssuedByStaffId: user.id,
+      governmentReceiptIssuedByName: user.fullName,
       governmentReceiptIssuedAt: new Date(),
       governmentReceiptNote: governmentReceiptNote,
       status: 'COMPLETED',
@@ -64,8 +72,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       action: 'ISSUE_GOVERNMENT_RECEIPT',
       fromStatus,
       toStatus: 'COMPLETED',
-      performedByStaffId: performedByStaffId || null,
-      performedByName: staffName,
+      performedByStaffId: user.id,
+      performedByName: user.fullName,
       note: `Government receipt ${receiptNo} issued to ${updated.taxPayer.fullName}. Process completed.`,
     },
   })

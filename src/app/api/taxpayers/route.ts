@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getSession, requireRole } from '@/lib/auth'
 
 // GET /api/taxpayers?q=...&category=...&active=...&woredaId=...&blocked=...
+// Any logged-in staff can view.
 export async function GET(req: NextRequest) {
+  const user = await getSession()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q')?.trim() || ''
   const category = searchParams.get('category') || ''
@@ -37,8 +42,15 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(taxpayers)
 }
 
-// POST /api/taxpayers
+// POST /api/taxpayers  (Leader or Team 1)
 export async function POST(req: NextRequest) {
+  try {
+    await requireRole('LEADER', 'TEAM_1_ASSIGNMENT')
+  } catch (e) {
+    if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
+    throw e
+  }
+
   const body = await req.json()
   const {
     tin,

@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// PATCH /api/assignments/[id]/bank-receipt
-// Team 2 records that the tax payer returned with a bank receipt
+// PATCH /api/assignments/[id]/bank-receipt  (Leader or Team 2)
+// Records that the tax payer returned with a bank receipt.
 // Optional: attachments array of { fileName, mimeType, content (base64), fileSize }
 export async function PATCH(req: NextRequest, { params }: Params) {
+  let user
+  try {
+    user = await requireRole('LEADER', 'TEAM_2_FINANCE')
+  } catch (e) {
+    if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
+    throw e
+  }
+
   const { id } = await params
   const body = await req.json()
   const {
@@ -15,8 +24,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     paymentDate,
     paymentAmount,
     bankReceiptNote,
-    performedByStaffId,
-    performedByName,
     attachments,
   } = body
 
@@ -30,14 +37,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     )
   }
 
-  // Look up staff name if only ID given
-  let staffName = performedByName
-  if (!staffName && performedByStaffId) {
-    const s = await db.staff.findUnique({ where: { id: performedByStaffId } })
-    if (s) staffName = s.fullName
-  }
-  if (!staffName) staffName = 'Unknown'
-
   const fromStatus = existing.status
   const newStatus = 'BANK_RECEIPT_SUBMITTED'
 
@@ -50,8 +49,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       paymentAmount:
         paymentAmount !== undefined ? Number(paymentAmount) : existing.paymentAmount,
       bankReceiptNote: bankReceiptNote ?? existing.bankReceiptNote,
-      bankReceiptReceivedByStaffId: performedByStaffId ?? existing.bankReceiptReceivedByStaffId,
-      bankReceiptReceivedByName: staffName,
+      bankReceiptReceivedByStaffId: user.id,
+      bankReceiptReceivedByName: user.fullName,
       bankReceiptReceivedAt: new Date(),
       status: newStatus,
     },
@@ -68,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           mimeType: att.mimeType,
           fileSize: att.fileSize,
           content: att.content, // base64
-          uploadedByStaffId: performedByStaffId || null,
+          uploadedByStaffId: user.id,
         },
       })
     }
@@ -80,8 +79,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       action: 'BANK_RECEIPT_RECEIVED',
       fromStatus,
       toStatus: newStatus,
-      performedByStaffId: performedByStaffId || null,
-      performedByName: staffName,
+      performedByStaffId: user.id,
+      performedByName: user.fullName,
       note:
         `Bank receipt received from tax payer (${bankReceiptNumber}, ${bankName}, ETB ${Number(paymentAmount ?? existing.paymentAmount).toLocaleString()})` +
         (attachments && attachments.length > 0 ? ` + ${attachments.length} attachment(s)` : ''),

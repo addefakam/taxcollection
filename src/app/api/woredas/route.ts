@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getSession, requireRole } from '@/lib/auth'
 
-// GET /api/woredas
+// GET /api/woredas  (any logged-in staff)
 export async function GET() {
+  const user = await getSession()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   const woredas = await db.woreda.findMany({
     orderBy: { code: 'asc' },
     include: { _count: { select: { taxPayers: true } } },
@@ -10,8 +14,15 @@ export async function GET() {
   return NextResponse.json(woredas)
 }
 
-// POST /api/woredas
+// POST /api/woredas  (Leader only)
 export async function POST(req: NextRequest) {
+  try {
+    await requireRole('LEADER')
+  } catch (e) {
+    if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
+    throw e
+  }
+
   const body = await req.json()
   const { code, name, region } = body
   if (!code || !name) {

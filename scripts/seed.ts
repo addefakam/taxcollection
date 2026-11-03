@@ -1,5 +1,6 @@
 // Seed script - populates the database with woredas, staff, and sample tax payers in Bishoftu
 import { db } from '../src/lib/db'
+import { hashPassword } from '../src/lib/password'
 
 async function main() {
   console.log('1. Seeding Woredas...')
@@ -21,24 +22,34 @@ async function main() {
     console.log(`  Woreda ${w.code}: ${w.name}`)
   }
 
-  console.log('\n2. Seeding Staff...')
+  console.log('\n2. Seeding Staff (with passwords)...')
+  const leaderPassword = 'Bishoftu@2026' // default leader password — change after first login!
   const staff = [
-    { fullName: 'Ato Tesfaye Lemma', email: 'tesfaye.lemma@bishoftu.gov.et', phone: '+251911100001', role: 'LEADER' },
-    { fullName: 'W/ro Almaz Bekele', email: 'almaz.bekele@bishoftu.gov.et', phone: '+251911100002', role: 'TEAM_1_ASSIGNMENT' },
-    { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT' },
-    { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE' },
-    { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE' },
+    { fullName: 'Ato Tesfaye Lemma', email: 'leader@bishoftu.gov.et', phone: '+251911100001', role: 'LEADER', password: leaderPassword },
+    { fullName: 'W/ro Almaz Bekele', email: 'almaz.bekele@bishoftu.gov.et', phone: '+251911100002', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@almaz' },
+    { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit' },
+    { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara' },
+    { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas' },
   ]
-  const staffRecords: Record<string, { id: string }> = {}
+  const staffRecords: Record<string, { id: string; fullName: string }> = {}
   for (const s of staff) {
+    const passwordHash = await hashPassword(s.password)
     const rec = await db.staff.upsert({
       where: { email: s.email },
-      update: {},
-      create: s,
+      update: { passwordHash }, // also set password if re-seeded
+      create: {
+        fullName: s.fullName,
+        email: s.email,
+        phone: s.phone,
+        role: s.role,
+        passwordHash,
+      },
     })
     staffRecords[s.email] = rec
-    console.log(`  Staff: ${s.fullName} (${s.role})`)
+    console.log(`  Staff: ${s.fullName} (${s.role}) — password: ${s.password}`)
   }
+  console.log(`\n  >>> LEADER LOGIN: leader@bishoftu.gov.et / ${leaderPassword} <<<`)
+  console.log('  >>> Change this password after first login! <<<')
 
   console.log('\n3. Seeding Tax Payers...')
   const sampleTaxPayers = [
