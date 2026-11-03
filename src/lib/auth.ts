@@ -9,7 +9,7 @@ const SESSION_SECRET =
 
 const secretKey = new TextEncoder().encode(SESSION_SECRET)
 
-export type Role = 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE'
+export type Role = 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_ADMIN'
 
 export interface SessionUser {
   id: string

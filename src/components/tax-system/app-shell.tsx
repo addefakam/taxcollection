@@ -8,6 +8,7 @@ import { TaxPayers } from './taxpayers'
 import { Assignments } from './assignments'
 import { ProcessTracker } from './process-tracker'
 import { StaffManagement } from './staff-management'
+import { CityIncome } from './city-income'
 import { RoleProvider } from './role-context'
 import { ROLES, Role } from './lib'
 import {
@@ -17,6 +18,7 @@ import {
   GitBranch,
   UserCog,
   Info,
+  TrendingUp,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -27,28 +29,40 @@ export interface SessionUser {
   role: Role
 }
 
-type Tab = 'dashboard' | 'taxpayers' | 'assignments' | 'tracker' | 'staff'
+type Tab = 'dashboard' | 'taxpayers' | 'assignments' | 'tracker' | 'income' | 'staff'
 
 const TABS: Array<{
   key: Tab
   label: string
   icon: typeof LayoutDashboard
-  leaderOnly?: boolean
+  visibleTo?: Role[] // if undefined, visible to all
 }> = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'taxpayers', label: 'Tax Payers', icon: Users },
   { key: 'assignments', label: 'Assignments', icon: ClipboardList },
   { key: 'tracker', label: 'Process Tracker', icon: GitBranch },
-  { key: 'staff', label: 'Staff Management', icon: UserCog, leaderOnly: true },
+  {
+    key: 'income',
+    label: 'City Income',
+    icon: TrendingUp,
+    visibleTo: ['LEADER', 'CITY_ADMIN'],
+  },
+  {
+    key: 'staff',
+    label: 'Staff Management',
+    icon: UserCog,
+    visibleTo: ['LEADER'],
+  },
 ]
 
 export function AppShell({ user }: { user: SessionUser }) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('dashboard')
 
-  const visibleTabs = TABS.filter((t) => !t.leaderOnly || user.role === 'LEADER')
-  // Safety: if user somehow has 'staff' tab selected but isn't a Leader, fall back to dashboard
-  const safeTab: Tab = tab === 'staff' && user.role !== 'LEADER' ? 'dashboard' : tab
+  const visibleTabs = TABS.filter((t) => !t.visibleTo || t.visibleTo.includes(user.role))
+  // Safety: if the user somehow has a tab selected they're not allowed to see, fall back to dashboard
+  const selectedTab = visibleTabs.find((t) => t.key === tab)
+  const safeTab: Tab = selectedTab ? tab : 'dashboard'
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -91,7 +105,8 @@ export function AppShell({ user }: { user: SessionUser }) {
           {safeTab === 'taxpayers' && <TaxPayers />}
           {safeTab === 'assignments' && <Assignments />}
           {safeTab === 'tracker' && <ProcessTracker />}
-          {safeTab === 'staff' && user.role === 'LEADER' && (
+          {safeTab === 'income' && selectedTab && <CityIncome />}
+          {safeTab === 'staff' && selectedTab && (
             <StaffManagement currentUser={user} />
           )}
         </main>

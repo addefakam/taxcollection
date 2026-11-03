@@ -30,6 +30,7 @@ async function main() {
     { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit' },
     { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara' },
     { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas' },
+    { fullName: 'Ato Habtamu Girma', email: 'cityadmin@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_ADMIN', password: 'City@habtamu' },
   ]
   const staffRecords: Record<string, { id: string; fullName: string }> = {}
   for (const s of staff) {
@@ -49,7 +50,8 @@ async function main() {
     console.log(`  Staff: ${s.fullName} (${s.role}) — password: ${s.password}`)
   }
   console.log(`\n  >>> LEADER LOGIN: leader@bishoftu.gov.et / ${leaderPassword} <<<`)
-  console.log('  >>> Change this password after first login! <<<')
+  console.log(`  >>> CITY ADMIN LOGIN: cityadmin@bishoftu.gov.et / City@habtamu <<<`)
+  console.log('  >>> Change these passwords after first login! <<<')
 
   console.log('\n3. Seeding Tax Payers...')
   const sampleTaxPayers = [
@@ -176,6 +178,27 @@ async function main() {
   }
 
   console.log(`\nDone. Seeded ${woredas.length} woredas, ${staff.length} staff, ${sampleTaxPayers.length} tax payers.`)
+
+  console.log('\n4. Seeding Yearly Tax Targets (expected tax per category)...')
+  const leaderRec = staffRecords['leader@bishoftu.gov.et']
+  const fiscalYear = '2026/2027'
+  const targets = [
+    { fiscalYear, category: 'BUSINESS', expectedAmount: 8_500_000, notes: 'Based on registered business count and last year actual' },
+    { fiscalYear, category: 'PROPERTY', expectedAmount: 3_200_000, notes: 'Annual property tax estimate' },
+    { fiscalYear, category: 'INDIVIDUAL_INCOME', expectedAmount: 4_800_000, notes: 'Estimated employed + self-employed income tax' },
+    { fiscalYear, category: 'VEHICLE', expectedAmount: 950_000, notes: 'Vehicle registration renewals' },
+    { fiscalYear, category: 'VAT', expectedAmount: 12_000_000, notes: 'VAT-registered businesses quarterly' },
+    { fiscalYear, category: 'WITHHOLDING', expectedAmount: 2_400_000, notes: 'Government withholding tax' },
+  ]
+  for (const t of targets) {
+    await db.yearlyTaxTarget.upsert({
+      where: { fiscalYear_category: { fiscalYear: t.fiscalYear, category: t.category } },
+      update: {},
+      create: { ...t, setByStaffId: leaderRec?.id || null },
+    })
+    console.log(`  Target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()} (${t.fiscalYear})`)
+  }
+  console.log(`Done. Seeded ${targets.length} yearly tax targets.`)
   console.log('\nNext step: run `bun run scripts/seed-assignments.ts` to add sample tax assignments.')
 }
 

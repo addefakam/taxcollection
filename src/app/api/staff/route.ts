@@ -57,9 +57,9 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
-  if (!['LEADER', 'TEAM_1_ASSIGNMENT', 'TEAM_2_FINANCE'].includes(role)) {
+  if (!['LEADER', 'TEAM_1_ASSIGNMENT', 'TEAM_2_FINANCE', 'CITY_ADMIN'].includes(role)) {
     return NextResponse.json(
-      { error: 'Invalid role. Must be LEADER, TEAM_1_ASSIGNMENT, or TEAM_2_FINANCE' },
+      { error: 'Invalid role. Must be LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, or CITY_ADMIN' },
       { status: 400 }
     )
   }

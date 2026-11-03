@@ -21,6 +21,7 @@ import {
   AlertCircle,
   FileText,
   ArrowRight,
+  TrendingUp,
 } from 'lucide-react'
 
 export default function LoginPage() {
@@ -151,13 +152,20 @@ export default function LoginPage() {
             </Card>
 
             {/* Roles */}
-            <div className="grid sm:grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <RoleCard
                 icon={ShieldCheck}
                 title="Finance Leader"
                 desc="Full visibility. Adds staff, blocks taxpayers, cancels assignments, resolves disputes."
                 tone="border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20"
                 iconTone="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+              />
+              <RoleCard
+                icon={TrendingUp}
+                title="City Admin — Income Follow-up"
+                desc="Follows up city-wide income: expected vs collected by category, daily/weekly/monthly/yearly trends."
+                tone="border-violet-300 bg-violet-50/40 dark:border-violet-800 dark:bg-violet-950/20"
+                iconTone="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
               />
               <RoleCard
                 icon={Users}

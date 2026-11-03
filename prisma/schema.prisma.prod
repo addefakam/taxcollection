@@ -1,0 +1,161 @@
+// Bishoftu Finance - Tax Collection Management System
+// Prisma schema for PostgreSQL (Neon)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Neon requires a connection pool size limit; directUrl is optional
+  // directUrl = env("DIRECT_URL")
+}
+
+// ---- Master data -----------------------------------------------------------
+
+// Sub-city / district (Woreda) master table
+model Woreda {
+  id        String   @id @default(cuid())
+  code      String   @unique // e.g. "01"
+  name      String   // e.g. "Woreda 01 - Bishoftu Town Center"
+  region    String?  // e.g. "Oromia"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  taxPayers TaxPayer[]
+}
+
+// Finance office staff members (Team 1 + Team 2 + Leader)
+model Staff {
+  id            String   @id @default(cuid())
+  fullName      String
+  email         String   @unique
+  phone         String?
+  role          String   @default("TEAM_1_ASSIGNMENT") // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE
+  passwordHash  String?
+  active        Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assignmentsAssigned       TaxAssignment[] @relation("StaffAssignedTo")
+  bankReceiptsReceivedBy    TaxAssignment[] @relation("StaffBankReceiptReceiver")
+  governmentReceiptsIssuedBy TaxAssignment[] @relation("StaffGovtReceiptIssuer")
+  history                   AssignmentHistory[]
+}
+
+// ---- Tax payer registry ---------------------------------------------------
+
+model TaxPayer {
+  id                String   @id @default(cuid())
+  tin               String   @unique // Tax Identification Number
+  fullName          String
+  category          String   // BUSINESS, PROPERTY, INDIVIDUAL_INCOME, VEHICLE, VAT, WITHHOLDING
+  phone             String?
+  email             String?
+  address           String?
+  woredaId          String?
+  woreda           Woreda?  @relation(fields: [woredaId], references: [id])
+  kebele            String?
+  tradeLicenseNo    String?  // for businesses
+  contactPerson     String?  // for businesses
+  notes             String?
+  active            Boolean  @default(true)
+  // Block / suspension flag
+  blocked           Boolean  @default(false)
+  blockedReason     String?
+  blockedAt         DateTime?
+  blockedByStaffId  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  assignments TaxAssignment[]
+}
+
+// ---- A tax assignment = one tax obligation for one period ---------------
+
+model TaxAssignment {
+  id            String   @id @default(cuid())
+  referenceNo   String   @unique // e.g. BF-2026-0001
+  taxPayerId    String
+  taxPayer      TaxPayer @relation(fields: [taxPayerId], references: [id])
+
+  fiscalYear    String   // e.g. "2025/2026"
+  period        String   // Q1, Q2, Q3, Q4, ANNUAL, MONTHLY-2026-01...
+  taxType       String   // Business Tax, Property Tax, Income Tax, VAT, etc.
+  description   String?
+  amountDue     Float    // ETB
+  dueDate       DateTime?
+
+  // Workflow status:
+  //   ASSIGNED -> BANK_RECEIPT_SUBMITTED -> VERIFIED -> COMPLETED (or CANCELLED)
+  status        String   @default("ASSIGNED")
+
+  // Team 1 - Assignment
+  assignedByStaffId String?
+  assignedBy        Staff? @relation("StaffAssignedTo", fields: [assignedByStaffId], references: [id])
+  assignedByName    String  // denormalized for safety (in case staff is deleted)
+  assignedAt        DateTime @default(now())
+
+  // Team 2 - Bank receipt (received from tax payer after they paid at the bank)
+  bankName              String?
+  bankReceiptNumber     String?
+  paymentDate           DateTime?
+  paymentAmount         Float?
+  bankReceiptNote       String?
+  bankReceiptReceivedByStaffId String?
+  bankReceiptReceivedBy         Staff? @relation("StaffBankReceiptReceiver", fields: [bankReceiptReceivedByStaffId], references: [id])
+  bankReceiptReceivedByName     String?
+  bankReceiptReceivedAt         DateTime?
+
+  // Team 2 - Government receipt (final confirmation to tax payer)
+  governmentReceiptNumber      String?
+  governmentReceiptIssuedByStaffId String?
+  governmentReceiptIssuedBy             Staff? @relation("StaffGovtReceiptIssuer", fields: [governmentReceiptIssuedByStaffId], references: [id])
+  governmentReceiptIssuedByName         String?
+  governmentReceiptIssuedAt              DateTime?
+  governmentReceiptNote                 String?
+
+  // Dispute / under review flag
+  disputed       Boolean  @default(false)
+  disputeReason  String?
+  disputedAt     DateTime?
+  disputedByStaffId String?
+
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  history       AssignmentHistory[]
+  attachments   BankReceiptAttachment[]
+}
+
+// Uploaded bank receipt images/PDFs stored as base64 in Postgres
+model BankReceiptAttachment {
+  id            String   @id @default(cuid())
+  assignmentId  String
+  assignment    TaxAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  fileName      String
+  mimeType      String
+  fileSize      Int      // bytes
+  content       String   // base64-encoded file content
+  uploadedByStaffId String?
+  uploadedAt    DateTime @default(now())
+}
+
+// Audit trail / timeline of every status change
+model AssignmentHistory {
+  id            String   @id @default(cuid())
+  assignmentId  String
+  assignment    TaxAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  action        String   // ASSIGN, BANK_RECEIPT_RECEIVED, VERIFY, ISSUE_GOVERNMENT_RECEIPT, CANCEL, EDIT, DISPUTE, UNDISPUTE, BLOCK, UNBLOCK
+  fromStatus    String?
+  toStatus      String?
+  performedByStaffId String?
+  performedBy         Staff? @relation(fields: [performedByStaffId], references: [id])
+  performedByName    String
+  note          String?
+  timestamp     DateTime @default(now())
+}
