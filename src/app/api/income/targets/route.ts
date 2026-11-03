@@ -3,31 +3,37 @@ import { db } from '@/lib/db'
 import { getSession, requireRole } from '@/lib/auth'
 import { TAX_CATEGORIES } from '@/components/tax-system/lib'
 
-// GET /api/income/targets?fiscalYear=2026/2027
+// GET /api/income/targets?fiscalYear=2026/2027&woredaId=...
 // Any logged-in staff can view targets.
+// If woredaId is not provided, returns ALL targets for the fiscal year (city-wide + per-woreda).
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const fiscalYear = searchParams.get('fiscalYear')
+  const woredaId = searchParams.get('woredaId')
 
   const where: Record<string, unknown> = {}
   if (fiscalYear) where.fiscalYear = fiscalYear
+  if (woredaId === 'null') where.woredaId = null
+  else if (woredaId) where.woredaId = woredaId
 
   const targets = await db.yearlyTaxTarget.findMany({
     where,
-    orderBy: [{ fiscalYear: 'asc' }, { category: 'asc' }],
+    orderBy: [{ fiscalYear: 'asc' }, { woredaId: 'asc' }, { category: 'asc' }],
     include: {
       setBy: { select: { id: true, fullName: true } },
+      woreda: { select: { id: true, code: true, name: true } },
     },
   })
   return NextResponse.json(targets)
 }
 
 // POST /api/income/targets  (Leader or City Admin)
-// Body: { fiscalYear, category, expectedAmount, notes? }
-// If a target for (fiscalYear, category) already exists, it's updated.
+// Body: { fiscalYear, category, expectedAmount, woredaId?, notes? }
+// woredaId null/undefined = city-wide target.
+// If a target for (fiscalYear, woredaId, category) already exists, it's updated.
 export async function POST(req: NextRequest) {
   let user
   try {
@@ -38,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { fiscalYear, category, expectedAmount, notes } = body
+  const { fiscalYear, category, expectedAmount, woredaId, notes } = body
 
   if (!fiscalYear || !category || expectedAmount === undefined) {
     return NextResponse.json(
@@ -60,27 +66,56 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Upsert: create or update by (fiscalYear, category)
-  const target = await db.yearlyTaxTarget.upsert({
+  // If woredaId provided, validate it exists
+  const finalWoredaId = woredaId || null
+  if (finalWoredaId) {
+    const w = await db.woreda.findUnique({ where: { id: finalWoredaId } })
+    if (!w) {
+      return NextResponse.json({ error: 'Woreda not found' }, { status: 404 })
+    }
+  }
+
+  // Upsert: create or update by (fiscalYear, woredaId, category)
+  // Prisma's @@unique on (fiscalYear, woredaId, category) creates a compound key.
+  // For nullable woredaId, we use a manual lookup then upsert.
+  const existing = await db.yearlyTaxTarget.findFirst({
     where: {
-      fiscalYear_category: { fiscalYear, category },
-    },
-    update: {
-      expectedAmount: amount,
-      notes: notes ?? null,
-      setByStaffId: user.id,
-    },
-    create: {
       fiscalYear,
+      woredaId: finalWoredaId,
       category,
-      expectedAmount: amount,
-      notes: notes ?? null,
-      setByStaffId: user.id,
-    },
-    include: {
-      setBy: { select: { id: true, fullName: true } },
     },
   })
+
+  let target
+  if (existing) {
+    target = await db.yearlyTaxTarget.update({
+      where: { id: existing.id },
+      data: {
+        expectedAmount: amount,
+        notes: notes ?? null,
+        setByStaffId: user.id,
+      },
+      include: {
+        setBy: { select: { id: true, fullName: true } },
+        woreda: { select: { id: true, code: true, name: true } },
+      },
+    })
+  } else {
+    target = await db.yearlyTaxTarget.create({
+      data: {
+        fiscalYear,
+        woredaId: finalWoredaId,
+        category,
+        expectedAmount: amount,
+        notes: notes ?? null,
+        setByStaffId: user.id,
+      },
+      include: {
+        setBy: { select: { id: true, fullName: true } },
+        woreda: { select: { id: true, code: true, name: true } },
+      },
+    })
+  }
 
   return NextResponse.json(target, { status: 201 })
 }

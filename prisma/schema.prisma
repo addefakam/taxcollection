@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
   // Neon requires a connection pool size limit; directUrl is optional
   // directUrl = env("DIRECT_URL")
@@ -25,6 +25,7 @@ model Woreda {
   updatedAt DateTime @updatedAt
 
   taxPayers TaxPayer[]
+  targets   YearlyTaxTarget[]
 }
 
 // Finance office staff members (Team 1 + Team 2 + Leader + City Admin)
@@ -161,11 +162,14 @@ model AssignmentHistory {
   timestamp     DateTime @default(now())
 }
 
-// Yearly tax target (expected tax) per category, set by Leader / City Admin
+// Yearly tax target (expected tax) per woreda + category, set by Leader / City Admin
 // Used by the City Income dashboard to compare expected vs collected.
+// woredaId is nullable: a null woredaId = city-wide target for that category.
 model YearlyTaxTarget {
   id              String   @id @default(cuid())
   fiscalYear      String   // e.g. "2026/2027"
+  woredaId        String?  // null = city-wide target for this category
+  woreda          Woreda?  @relation(fields: [woredaId], references: [id])
   category        String   // BUSINESS, PROPERTY, INDIVIDUAL_INCOME, VEHICLE, VAT, WITHHOLDING
   expectedAmount  Float    // ETB - the target the city expects to collect
   notes           String?
@@ -174,5 +178,5 @@ model YearlyTaxTarget {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([fiscalYear, category])
+  @@unique([fiscalYear, woredaId, category])
 }

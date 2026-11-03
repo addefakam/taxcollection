@@ -179,10 +179,12 @@ async function main() {
 
   console.log(`\nDone. Seeded ${woredas.length} woredas, ${staff.length} staff, ${sampleTaxPayers.length} tax payers.`)
 
-  console.log('\n4. Seeding Yearly Tax Targets (expected tax per category)...')
+  console.log('\n4. Seeding Yearly Tax Targets (expected tax per category + per woreda)...')
   const leaderRec = staffRecords['leader@bishoftu.gov.et']
   const fiscalYear = '2026/2027'
-  const targets = [
+
+  // City-wide targets per category (woredaId = null)
+  const cityWideTargets = [
     { fiscalYear, category: 'BUSINESS', expectedAmount: 8_500_000, notes: 'Based on registered business count and last year actual' },
     { fiscalYear, category: 'PROPERTY', expectedAmount: 3_200_000, notes: 'Annual property tax estimate' },
     { fiscalYear, category: 'INDIVIDUAL_INCOME', expectedAmount: 4_800_000, notes: 'Estimated employed + self-employed income tax' },
@@ -190,15 +192,63 @@ async function main() {
     { fiscalYear, category: 'VAT', expectedAmount: 12_000_000, notes: 'VAT-registered businesses quarterly' },
     { fiscalYear, category: 'WITHHOLDING', expectedAmount: 2_400_000, notes: 'Government withholding tax' },
   ]
-  for (const t of targets) {
-    await db.yearlyTaxTarget.upsert({
-      where: { fiscalYear_category: { fiscalYear: t.fiscalYear, category: t.category } },
-      update: {},
-      create: { ...t, setByStaffId: leaderRec?.id || null },
+  for (const t of cityWideTargets) {
+    const existing = await db.yearlyTaxTarget.findFirst({
+      where: { fiscalYear: t.fiscalYear, woredaId: null, category: t.category },
     })
-    console.log(`  Target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()} (${t.fiscalYear})`)
+    if (existing) {
+      await db.yearlyTaxTarget.update({
+        where: { id: existing.id },
+        data: { expectedAmount: t.expectedAmount, notes: t.notes, setByStaffId: leaderRec?.id || null },
+      })
+    } else {
+      await db.yearlyTaxTarget.create({
+        data: { ...t, woredaId: null, setByStaffId: leaderRec?.id || null },
+      })
+    }
+    console.log(`  City-wide target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()}`)
   }
-  console.log(`Done. Seeded ${targets.length} yearly tax targets.`)
+
+  // Per-woreda targets (sample: 3 woredas × 3 categories)
+  const woredaTargets = [
+    // Woreda 01 - Town Center (largest business district)
+    { woredaCode: '01', category: 'BUSINESS', expectedAmount: 2_500_000 },
+    { woredaCode: '01', category: 'VAT', expectedAmount: 3_800_000 },
+    { woredaCode: '01', category: 'PROPERTY', expectedAmount: 850_000 },
+    // Woreda 02 - Lake Side (mid-tier)
+    { woredaCode: '02', category: 'BUSINESS', expectedAmount: 1_400_000 },
+    { woredaCode: '02', category: 'PROPERTY', expectedAmount: 720_000 },
+    // Woreda 04 - Industrial Zone (heavy)
+    { woredaCode: '04', category: 'BUSINESS', expectedAmount: 1_900_000 },
+    { woredaCode: '04', category: 'VAT', expectedAmount: 2_600_000 },
+  ]
+  for (const t of woredaTargets) {
+    const woredaRec = woredaRecords[t.woredaCode]
+    if (!woredaRec) continue
+    const existing = await db.yearlyTaxTarget.findFirst({
+      where: { fiscalYear, woredaId: woredaRec.id, category: t.category },
+    })
+    if (existing) {
+      await db.yearlyTaxTarget.update({
+        where: { id: existing.id },
+        data: { expectedAmount: t.expectedAmount, setByStaffId: leaderRec?.id || null },
+      })
+    } else {
+      await db.yearlyTaxTarget.create({
+        data: {
+          fiscalYear,
+          woredaId: woredaRec.id,
+          category: t.category,
+          expectedAmount: t.expectedAmount,
+          setByStaffId: leaderRec?.id || null,
+        },
+      })
+    }
+    console.log(`  Woreda ${t.woredaCode} target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()}`)
+  }
+
+  const totalTargets = cityWideTargets.length + woredaTargets.length
+  console.log(`Done. Seeded ${totalTargets} yearly tax targets (${cityWideTargets.length} city-wide + ${woredaTargets.length} per-woreda).`)
   console.log('\nNext step: run `bun run scripts/seed-assignments.ts` to add sample tax assignments.')
 }
 

@@ -71,6 +71,8 @@ interface CategorySummary {
   categoryLabel: string
   expected: number
   hasTarget: boolean
+  hasCityWideTarget: boolean
+  hasWoredaTargets: boolean
   targetSetBy: string | null
   targetSetAt: string | null
   assigned: number
@@ -87,7 +89,56 @@ interface TrendPoint {
   date?: string
   week?: string
   month?: string
+  year?: string
   amount: number
+}
+
+interface WoredaSummary {
+  woredaId: string
+  woredaCode: string
+  woredaName: string
+  expected: number
+  collected: number
+  assigned: number
+  outstanding: number
+  rate: number
+  assignedCount: number
+  completedCount: number
+}
+
+interface TopTaxpayer {
+  taxPayerId: string
+  tin: string
+  fullName: string
+  category: string
+  categoryLabel: string
+  woreda: { id: string; code: string; name: string } | null
+  totalPaid: number
+  caseCount: number
+}
+
+interface RecentPayment {
+  id: string
+  referenceNo: string
+  taxPayerTin: string
+  taxPayerName: string
+  category: string
+  categoryLabel: string
+  taxType: string
+  period: string
+  paymentAmount: number
+  bankName: string | null
+  bankReceiptNumber: string | null
+  governmentReceiptNumber: string | null
+  governmentReceiptIssuedAt: string | null
+  governmentReceiptIssuedByName: string | null
+}
+
+interface WoredaCategoryTarget {
+  woredaId: string
+  woredaCode: string
+  woredaName: string
+  targets: Record<string, number>
 }
 
 interface Summary {
@@ -109,7 +160,12 @@ interface Summary {
     daily: TrendPoint[]
     weekly: TrendPoint[]
     monthly: TrendPoint[]
+    yearly: TrendPoint[]
   }
+  byWoreda: WoredaSummary[]
+  topTaxpayers: TopTaxpayer[]
+  recentPayments: RecentPayment[]
+  woredaCategoryTargets: WoredaCategoryTarget[]
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -125,6 +181,7 @@ const TREND_OPTIONS = [
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
+  { value: 'yearly', label: 'Yearly' },
 ] as const
 type TrendKey = (typeof TREND_OPTIONS)[number]['value']
 
@@ -139,12 +196,19 @@ export function CityIncome() {
 
   const [trendKey, setTrendKey] = useState<TrendKey>('monthly')
 
-  // Target edit dialog
+  // Target edit dialog (city-wide target for a category)
   const [targetDialogOpen, setTargetDialogOpen] = useState(false)
   const [targetCat, setTargetCat] = useState<string>('')
   const [targetAmount, setTargetAmount] = useState('')
   const [targetNotes, setTargetNotes] = useState('')
   const [targetSaving, setTargetSaving] = useState(false)
+
+  // Per-woreda target dialog
+  const [woredaDialogOpen, setWoredaDialogOpen] = useState(false)
+  const [woredaTargetWoredaId, setWoredaTargetWoredaId] = useState<string>('')
+  const [woredaTargetCat, setWoredaTargetCat] = useState<string>('BUSINESS')
+  const [woredaTargetAmount, setWoredaTargetAmount] = useState('')
+  const [woredaTargetSaving, setWoredaTargetSaving] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -167,9 +231,23 @@ export function CityIncome() {
   const openTargetDialog = (cat: string) => {
     const existing = summary?.byCategory.find((c) => c.category === cat)
     setTargetCat(cat)
-    setTargetAmount(existing?.hasTarget ? String(existing.expected) : '')
+    setTargetAmount(existing?.hasCityWideTarget ? String(existing.expected) : '')
     setTargetNotes('')
     setTargetDialogOpen(true)
+  }
+
+  const openWoredaTargetDialog = (woredaId?: string, cat?: string) => {
+    setWoredaTargetWoredaId(woredaId || '')
+    setWoredaTargetCat(cat || 'BUSINESS')
+    // Pre-fill if a target exists
+    if (woredaId && cat && summary?.woredaCategoryTargets) {
+      const w = summary.woredaCategoryTargets.find((w) => w.woredaId === woredaId)
+      const existing = w?.targets[cat]
+      setWoredaTargetAmount(existing ? String(existing) : '')
+    } else {
+      setWoredaTargetAmount('')
+    }
+    setWoredaDialogOpen(true)
   }
 
   const saveTarget = async () => {
@@ -200,12 +278,13 @@ export function CityIncome() {
           category: targetCat,
           expectedAmount: amount,
           notes: targetNotes,
+          // woredaId omitted = city-wide target
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
       toast({
-        title: 'Target saved',
+        title: 'City-wide target saved',
         description: `${categoryLabel(targetCat)} target for ${summary?.fiscalYear}: ${fmtETB(amount)}`,
       })
       setTargetDialogOpen(false)
@@ -215,6 +294,55 @@ export function CityIncome() {
       toast({ title: 'Error', description: msg, variant: 'destructive' })
     } finally {
       setTargetSaving(false)
+    }
+  }
+
+  const saveWoredaTarget = async () => {
+    if (!woredaTargetWoredaId || !woredaTargetCat || !woredaTargetAmount) {
+      toast({
+        title: 'Missing fields',
+        description: 'Woreda, category and amount are required.',
+        variant: 'destructive',
+      })
+      return
+    }
+    const amount = Number(woredaTargetAmount)
+    if (isNaN(amount) || amount < 0) {
+      toast({
+        title: 'Invalid amount',
+        description: 'Expected amount must be a non-negative number.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setWoredaTargetSaving(true)
+    try {
+      const res = await fetch('/api/income/targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fiscalYear: summary?.fiscalYear,
+          woredaId: woredaTargetWoredaId,
+          category: woredaTargetCat,
+          expectedAmount: amount,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      const woredaName =
+        summary?.byWoreda.find((w) => w.woredaId === woredaTargetWoredaId)?.woredaName ||
+        'woreda'
+      toast({
+        title: 'Per-woreda target saved',
+        description: `${woredaName} · ${categoryLabel(woredaTargetCat)}: ${fmtETB(amount)}`,
+      })
+      setWoredaDialogOpen(false)
+      load()
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed'
+      toast({ title: 'Error', description: msg, variant: 'destructive' })
+    } finally {
+      setWoredaTargetSaving(false)
     }
   }
 
@@ -235,7 +363,16 @@ export function CityIncome() {
     )
   }
 
-  const { byCategory, totals, trends, availableFiscalYears, fiscalYear: currentFY } = summary
+  const {
+    byCategory,
+    totals,
+    trends,
+    availableFiscalYears,
+    fiscalYear: currentFY,
+    byWoreda,
+    topTaxpayers,
+    recentPayments,
+  } = summary
 
   const kpis = [
     {
@@ -295,7 +432,9 @@ export function CityIncome() {
       ? trends.daily.map((t) => ({ name: t.date, amount: t.amount }))
       : trendKey === 'weekly'
         ? trends.weekly.map((t) => ({ name: t.week, amount: t.amount }))
-        : trends.monthly.map((t) => ({ name: t.month, amount: t.amount }))
+        : trendKey === 'monthly'
+          ? trends.monthly.map((t) => ({ name: t.month, amount: t.amount }))
+          : trends.yearly.map((t) => ({ name: t.year, amount: t.amount }))
 
   const barChartConfig: ChartConfig = {
     Expected: { label: 'Expected', color: 'oklch(0.65 0.18 50)' },
@@ -722,7 +861,292 @@ export function CityIncome() {
         </CardContent>
       </Card>
 
-      {/* Set Target Dialog */}
+      {/* By Woreda comparison chart + table */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                Collection by Woreda — {currentFY}
+              </CardTitle>
+              <CardDescription>
+                Expected vs collected tax in each sub-city (woreda).
+              </CardDescription>
+            </div>
+            {canSetTargets && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openWoredaTargetDialog()}
+                className="gap-1.5"
+              >
+                <Target className="h-3.5 w-3.5" /> Set Per-Woreda Target
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {byWoreda.length === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              No woredas defined yet.
+            </div>
+          ) : (
+            <>
+              <ChartContainer
+                config={{
+                  Expected: { label: 'Expected', color: 'oklch(0.65 0.18 50)' },
+                  Collected: { label: 'Collected', color: 'oklch(0.55 0.13 160)' },
+                }}
+                className="h-64 w-full mb-4"
+              >
+                <BarChart
+                  data={byWoreda.map((w) => ({
+                    name: `W${w.woredaCode}`,
+                    Expected: w.expected,
+                    Collected: w.collected,
+                  }))}
+                  accessibilityLayer
+                >
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} />
+                  <YAxis
+                    tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
+                    fontSize={11}
+                  />
+                  <ChartTooltip
+                    content={<ChartTooltipContent formatter={(v: number | string) => fmtETB(Number(v))} />}
+                  />
+                  <Bar dataKey="Expected" fill="var(--color-Expected)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Collected" fill="var(--color-Collected)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-y bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Woreda</th>
+                      <th className="px-3 py-2 text-right font-medium">Expected</th>
+                      <th className="px-3 py-2 text-right font-medium">Assigned</th>
+                      <th className="px-3 py-2 text-right font-medium">Collected</th>
+                      <th className="px-3 py-2 text-right font-medium">Outstanding</th>
+                      <th className="px-3 py-2 text-center font-medium">Rate</th>
+                      <th className="px-3 py-2 text-center font-medium">Cases</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {byWoreda.map((w) => (
+                      <tr key={w.woredaId} className="hover:bg-muted/40">
+                        <td className="px-3 py-2.5">
+                          <p className="font-medium">Woreda {w.woredaCode}</p>
+                          <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+                            {w.woredaName}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-violet-700 dark:text-violet-300">
+                          {w.expected > 0 ? fmtETB(w.expected) : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-right">{fmtETB(w.assigned)}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold text-emerald-700 dark:text-emerald-400">
+                          {fmtETB(w.collected)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-amber-700 dark:text-amber-400">
+                          {fmtETB(w.outstanding)}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className="font-semibold">{w.rate}%</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-xs">
+                          <Badge variant="secondary">{w.completedCount}</Badge>
+                          <span className="text-muted-foreground ml-1">/ {w.assignedCount}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Top Taxpayers + Recent Payments — two columns */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Top taxpayers */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Top 10 Taxpayers — {currentFY}
+            </CardTitle>
+            <CardDescription>
+              By total amount collected (completed cases only).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {topTaxpayers.length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground">
+                No completed collections yet.
+              </div>
+            ) : (
+              <div className="divide-y">
+                {topTaxpayers.map((t, idx) => (
+                  <div key={t.taxPayerId} className="flex items-center gap-3 p-3">
+                    <div
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold flex-shrink-0 ${
+                        idx === 0
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                          : idx === 1
+                            ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            : idx === 2
+                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                              : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {idx + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{t.fullName}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        {t.tin} · {t.categoryLabel}
+                        {t.woreda && <> · W{t.woreda.code}</>}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-sm text-emerald-700 dark:text-emerald-400">
+                        {fmtETB(t.totalPaid)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {t.caseCount} case{t.caseCount !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent payments */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4 text-primary" />
+              Recent Payments — last 10
+            </CardTitle>
+            <CardDescription>
+              Most recently completed government receipts issued.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {recentPayments.length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground">
+                No completed collections yet.
+              </div>
+            ) : (
+              <div className="divide-y">
+                {recentPayments.map((p) => (
+                  <div key={p.id} className="p-3">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge variant="outline" className="font-mono text-[10px]">
+                          {p.referenceNo}
+                        </Badge>
+                        {p.governmentReceiptNumber && (
+                          <Badge variant="secondary" className="text-[10px] font-mono">
+                            {p.governmentReceiptNumber}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="font-semibold text-sm text-emerald-700 dark:text-emerald-400">
+                        {fmtETB(p.paymentAmount)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium truncate">{p.taxPayerName}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {p.taxPayerTin} · {p.categoryLabel} · {p.taxType} · {p.period}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {p.governmentReceiptIssuedAt
+                        ? fmtDateShort(p.governmentReceiptIssuedAt)
+                        : '—'}{' '}
+                      · by {p.governmentReceiptIssuedByName || '—'}
+                      {p.bankName && <> · {p.bankName}</>}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Per-woreda + per-category target matrix (Leader / City Admin only) */}
+      {canSetTargets && summary.woredaCategoryTargets && summary.woredaCategoryTargets.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Target className="h-4 w-4 text-primary" />
+              Per-Woreda Target Matrix — {currentFY}
+            </CardTitle>
+            <CardDescription>
+              Click any cell to set or edit the expected tax for that woreda + category.
+              Empty cells have no target set.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-y bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium sticky left-0 bg-muted/40">
+                      Woreda
+                    </th>
+                    {TAX_CATEGORIES.map((c) => (
+                      <th key={c.value} className="px-3 py-2 text-right font-medium">
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {summary.woredaCategoryTargets.map((row) => (
+                    <tr key={row.woredaId} className="hover:bg-muted/40">
+                      <td className="px-3 py-2.5 sticky left-0 bg-background">
+                        <p className="font-medium">Woreda {row.woredaCode}</p>
+                        <p className="text-[10px] text-muted-foreground truncate max-w-[160px]">
+                          {row.woredaName}
+                        </p>
+                      </td>
+                      {TAX_CATEGORIES.map((c) => {
+                        const val = row.targets[c.value] || 0
+                        return (
+                          <td key={c.value} className="px-3 py-2.5 text-right">
+                            <button
+                              onClick={() => openWoredaTargetDialog(row.woredaId, c.value)}
+                              className={`text-xs font-medium hover:underline ${
+                                val > 0
+                                  ? 'text-violet-700 dark:text-violet-300'
+                                  : 'text-muted-foreground/60'
+                              }`}
+                              title="Click to set/edit target"
+                            >
+                              {val > 0 ? fmtETB(val) : '— set —'}
+                            </button>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Set Target Dialog (city-wide) */}
       <Dialog open={targetDialogOpen} onOpenChange={setTargetDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -774,6 +1198,89 @@ export function CityIncome() {
             </Button>
             <Button onClick={saveTarget} disabled={targetSaving}>
               {targetSaving ? 'Saving…' : 'Save Target'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Per-Woreda Target Dialog */}
+      <Dialog open={woredaDialogOpen} onOpenChange={setWoredaDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Set Per-Woreda Tax Target
+            </DialogTitle>
+            <DialogDescription>
+              Set the expected tax the city should collect from a specific
+              woreda + category combination in fiscal year{' '}
+              <span className="font-medium text-foreground">{summary?.fiscalYear}</span>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Woreda *</Label>
+              <Select
+                value={woredaTargetWoredaId}
+                onValueChange={(v) => setWoredaTargetWoredaId(v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select woreda..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {summary?.byWoreda.map((w) => (
+                    <SelectItem key={w.woredaId} value={w.woredaId}>
+                      Woreda {w.woredaCode} — {w.woredaName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Category *</Label>
+              <Select
+                value={woredaTargetCat}
+                onValueChange={(v) => setWoredaTargetCat(v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TAX_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Expected Amount (ETB) *</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1000"
+                value={woredaTargetAmount}
+                onChange={(e) => setWoredaTargetAmount(e.target.value)}
+                placeholder="e.g. 800,000"
+              />
+              <p className="text-xs text-muted-foreground">
+                This is in addition to (or instead of) the city-wide target. Per-woreda targets are summed to compute the city-wide expected.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setWoredaDialogOpen(false)}
+              disabled={woredaTargetSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={saveWoredaTarget} disabled={woredaTargetSaving}>
+              {woredaTargetSaving ? 'Saving…' : 'Save Per-Woreda Target'}
             </Button>
           </DialogFooter>
         </DialogContent>
