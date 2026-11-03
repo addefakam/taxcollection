@@ -22,7 +22,75 @@ import {
   FileText,
   ArrowRight,
   TrendingUp,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
+  Wand2,
 } from 'lucide-react'
+
+// Demo / seed credentials — these match scripts/seed.ts.
+// Shown on the login page so first-time users can quickly try the system.
+// IMPORTANT: in production, change all of these after first login (User menu → Change password).
+interface DemoAccount {
+  role: string
+  roleLabel: string
+  fullName: string
+  email: string
+  password: string
+  tone: string
+}
+
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    role: 'LEADER',
+    roleLabel: 'Finance Leader',
+    fullName: 'Ato Tesfaye Lemma',
+    email: 'leader@bishoftu.gov.et',
+    password: 'Bishoftu@2026',
+    tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  },
+  {
+    role: 'CITY_REVENUE_OFFICER',
+    roleLabel: 'City Revenue Officer',
+    fullName: 'Ato Habtamu Girma',
+    email: 'revenue@bishoftu.gov.et',
+    password: 'Revenue@habtamu',
+    tone: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  },
+  {
+    role: 'TEAM_1_ASSIGNMENT',
+    roleLabel: 'Team 1 — Assignment',
+    fullName: 'W/ro Almaz Bekele',
+    email: 'almaz.bekele@bishoftu.gov.et',
+    password: 'Team1@almaz',
+    tone: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  },
+  {
+    role: 'TEAM_1_ASSIGNMENT',
+    roleLabel: 'Team 1 — Assignment',
+    fullName: 'Ato Dawit Girma',
+    email: 'dawit.girma@bishoftu.gov.et',
+    password: 'Team1@dawit',
+    tone: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  },
+  {
+    role: 'TEAM_2_FINANCE',
+    roleLabel: 'Team 2 — Finance Office',
+    fullName: 'W/ro Sara Mengistu',
+    email: 'sara.mengistu@bishoftu.gov.et',
+    password: 'Team2@sara',
+    tone: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  },
+  {
+    role: 'TEAM_2_FINANCE',
+    roleLabel: 'Team 2 — Finance Office',
+    fullName: 'Ato Yonas Tadesse',
+    email: 'yonas.tadesse@bishoftu.gov.et',
+    password: 'Team2@yonas',
+    tone: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+  },
+]
 
 export default function LoginPage() {
   const router = useRouter()
@@ -30,6 +98,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCreds, setShowCreds] = useState(true)
+  const [showPassword, setShowPassword] = useState(false)
+
+  const fillCredentials = (acc: DemoAccount) => {
+    setEmail(acc.email)
+    setPassword(acc.password)
+    setError(null)
+    setShowPassword(true)
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -282,14 +359,27 @@ export default function LoginPage() {
                       <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="password"
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         autoComplete="current-password"
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-9"
+                        className="pl-9 pr-10"
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded hover:bg-muted text-muted-foreground"
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
                   </div>
 
@@ -310,11 +400,88 @@ export default function LoginPage() {
                   </Button>
                 </form>
 
+                {/* Demo credentials panel */}
+                <div className="mt-4 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreds((v) => !v)}
+                    className="w-full flex items-center justify-between text-left text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Demo credentials (click to fill)
+                    </span>
+                    {showCreds ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+
+                  {showCreds && (
+                    <div className="mt-3 space-y-2">
+                      <div className="rounded-md border border-amber-300/60 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/30 p-2 text-xs text-amber-800 dark:text-amber-200 flex gap-2">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                        <span>
+                          These passwords come from <code className="font-mono">scripts/seed.ts</code>.
+                          Change them after first login (User menu → Change password).
+                        </span>
+                      </div>
+                      <ul className="space-y-1.5">
+                        {DEMO_ACCOUNTS.map((acc) => {
+                          const isActive = email === acc.email
+                          return (
+                            <li
+                              key={acc.email}
+                              className={`rounded-md border p-2 transition-colors ${
+                                isActive
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border/60 hover:bg-muted/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span
+                                      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium ${acc.tone}`}
+                                    >
+                                      {acc.roleLabel}
+                                    </span>
+                                    <span className="text-xs font-medium truncate">
+                                      {acc.fullName}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col gap-0.5 text-[11px] font-mono text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Mail className="h-3 w-3" />
+                                      {acc.email}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Lock className="h-3 w-3" />
+                                      {acc.password}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={isActive ? 'default' : 'outline'}
+                                  className="gap-1.5 h-7 text-xs flex-shrink-0"
+                                  onClick={() => fillCredentials(acc)}
+                                >
+                                  <Wand2 className="h-3 w-3" />
+                                  {isActive ? 'Filled' : 'Use'}
+                                </Button>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
                 <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
-                  <p>
-                    <span className="font-medium text-foreground">Default leader:</span>{' '}
-                    leader@bishoftu.gov.et
-                  </p>
                   <p>
                     <span className="font-medium text-foreground">Need help?</span> Contact
                     the Finance Office IT desk.
