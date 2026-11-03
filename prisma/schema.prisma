@@ -1,0 +1,81 @@
+// Bishoftu Finance - Tax Collection Management System
+// Prisma schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Tax Payer Registry - master list of all taxpayers in the city
+model TaxPayer {
+  id           String   @id @default(cuid())
+  tin          String   @unique // Tax Identification Number
+  fullName     String
+  category     String   // BUSINESS, PROPERTY, INDIVIDUAL_INCOME, VEHICLE, VAT, WITHHOLDING
+  phone        String?
+  email        String?
+  address      String?
+  woreda       String?  // sub-city / district
+  kebele       String?  // neighborhood
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  assignments  TaxAssignment[]
+}
+
+// A tax assignment = one tax obligation for one period (Team 1 creates this)
+model TaxAssignment {
+  id            String   @id @default(cuid())
+  referenceNo   String   @unique // e.g. BF-2026-0001
+  taxPayerId    String
+  taxPayer      TaxPayer @relation(fields: [taxPayerId], references: [id])
+  fiscalYear    String   // e.g. "2025/2026"
+  period        String   // Q1, Q2, Q3, Q4, ANNUAL, MONTHLY-2026-01...
+  taxType       String   // Business Tax, Property Tax, Income Tax, VAT, etc.
+  description   String?
+  amountDue     Float    // ETB
+  assignedBy    String   // Team 1 staff member name
+  assignedAt    DateTime @default(now())
+  dueDate       DateTime?
+
+  // Workflow status
+  // ASSIGNED -> BANK_RECEIPT_SUBMITTED -> VERIFIED -> COMPLETED  (or CANCELLED)
+  status        String   @default("ASSIGNED")
+
+  // Bank payment info (filled when tax payer returns with bank receipt - Team 2 receives)
+  bankName              String?
+  bankReceiptNumber     String?
+  paymentDate           DateTime?
+  paymentAmount         Float?
+  bankReceiptNote       String?
+  bankReceiptReceivedBy String?
+  bankReceiptReceivedAt DateTime?
+
+  // Government receipt (issued by Team 2 as final confirmation to tax payer)
+  governmentReceiptNumber     String?
+  governmentReceiptIssuedBy   String?
+  governmentReceiptIssuedAt    DateTime?
+  governmentReceiptNote        String?
+
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  history       AssignmentHistory[]
+}
+
+// Audit trail / timeline of every status change
+model AssignmentHistory {
+  id            String   @id @default(cuid())
+  assignmentId  String
+  assignment    TaxAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  action        String   // ASSIGN, BANK_RECEIPT_RECEIVED, VERIFY, ISSUE_GOVERNMENT_RECEIPT, CANCEL, EDIT
+  fromStatus    String?
+  toStatus      String?
+  performedBy   String
+  note          String?
+  timestamp     DateTime @default(now())
+}
