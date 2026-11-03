@@ -18,9 +18,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const body = await req.json()
   const { fullName, email, phone, role, active } = body
 
-  if (role && !['LEADER', 'TEAM_1_ASSIGNMENT', 'TEAM_2_FINANCE', 'CITY_ADMIN'].includes(role)) {
+  if (role && !['LEADER', 'TEAM_1_ASSIGNMENT', 'TEAM_2_FINANCE', 'CITY_REVENUE_OFFICER'].includes(role)) {
     return NextResponse.json(
-      { error: 'Invalid role. Must be LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, or CITY_ADMIN' },
+      { error: 'Invalid role. Must be LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, or CITY_REVENUE_OFFICER' },
       { status: 400 }
     )
   }

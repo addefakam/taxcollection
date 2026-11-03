@@ -8,7 +8,8 @@ import { TaxPayers } from './taxpayers'
 import { Assignments } from './assignments'
 import { ProcessTracker } from './process-tracker'
 import { StaffManagement } from './staff-management'
-import { CityIncome } from './city-income'
+import { RevenueDashboard } from './revenue-dashboard'
+import { TaxTargets } from './tax-targets'
 import { RoleProvider } from './role-context'
 import { ROLES, Role } from './lib'
 import {
@@ -19,6 +20,7 @@ import {
   UserCog,
   Info,
   TrendingUp,
+  Target,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -29,7 +31,14 @@ export interface SessionUser {
   role: Role
 }
 
-type Tab = 'dashboard' | 'taxpayers' | 'assignments' | 'tracker' | 'income' | 'staff'
+type Tab =
+  | 'dashboard'
+  | 'taxpayers'
+  | 'assignments'
+  | 'tracker'
+  | 'revenue'
+  | 'targets'
+  | 'staff'
 
 const TABS: Array<{
   key: Tab
@@ -42,10 +51,16 @@ const TABS: Array<{
   { key: 'assignments', label: 'Assignments', icon: ClipboardList },
   { key: 'tracker', label: 'Process Tracker', icon: GitBranch },
   {
-    key: 'income',
-    label: 'City Income',
+    key: 'revenue',
+    label: 'City Revenue',
     icon: TrendingUp,
-    visibleTo: ['LEADER', 'CITY_ADMIN'],
+    visibleTo: ['LEADER', 'CITY_REVENUE_OFFICER'],
+  },
+  {
+    key: 'targets',
+    label: 'Tax Targets',
+    icon: Target,
+    visibleTo: ['LEADER', 'CITY_REVENUE_OFFICER'],
   },
   {
     key: 'staff',
@@ -105,7 +120,8 @@ export function AppShell({ user }: { user: SessionUser }) {
           {safeTab === 'taxpayers' && <TaxPayers />}
           {safeTab === 'assignments' && <Assignments />}
           {safeTab === 'tracker' && <ProcessTracker />}
-          {safeTab === 'income' && selectedTab && <CityIncome />}
+          {safeTab === 'revenue' && selectedTab && <RevenueDashboard />}
+          {safeTab === 'targets' && selectedTab && <TaxTargets />}
           {safeTab === 'staff' && selectedTab && (
             <StaffManagement currentUser={user} />
           )}

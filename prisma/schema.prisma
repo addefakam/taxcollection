@@ -28,13 +28,13 @@ model Woreda {
   targets   YearlyTaxTarget[]
 }
 
-// Finance office staff members (Team 1 + Team 2 + Leader + City Admin)
+// Finance office staff members (Team 1 + Team 2 + Leader + City Revenue Officer)
 model Staff {
   id            String   @id @default(cuid())
   fullName      String
   email         String   @unique
   phone         String?
-  role          String   @default("TEAM_1_ASSIGNMENT") // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_ADMIN
+  role          String   @default("TEAM_1_ASSIGNMENT") // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER
   passwordHash  String?
   active        Boolean  @default(true)
   lastLoginAt   DateTime?

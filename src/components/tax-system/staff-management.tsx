@@ -52,7 +52,7 @@ interface StaffMember {
   fullName: string
   email: string
   phone?: string | null
-  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_ADMIN'
+  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER'
   active: boolean
   lastLoginAt?: string | null
   createdAt: string
@@ -62,14 +62,14 @@ const ROLE_LABEL: Record<string, string> = {
   LEADER: 'Finance Leader',
   TEAM_1_ASSIGNMENT: 'Team 1 — Assignment',
   TEAM_2_FINANCE: 'Team 2 — Finance Office',
-  CITY_ADMIN: 'City Admin — Income Follow-up',
+  CITY_REVENUE_OFFICER: 'City Revenue Officer',
 }
 
 const ROLE_TONE: Record<string, string> = {
   LEADER: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
   TEAM_1_ASSIGNMENT: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   TEAM_2_FINANCE: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
-  CITY_ADMIN: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  CITY_REVENUE_OFFICER: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
 }
 
 const emptyForm = {
@@ -436,7 +436,7 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                       <SelectItem value="LEADER">Finance Leader</SelectItem>
                       <SelectItem value="TEAM_1_ASSIGNMENT">Team 1 — Assignment</SelectItem>
                       <SelectItem value="TEAM_2_FINANCE">Team 2 — Finance Office</SelectItem>
-                      <SelectItem value="CITY_ADMIN">City Admin — Income Follow-up</SelectItem>
+                      <SelectItem value="CITY_REVENUE_OFFICER">City Revenue Officer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -30,7 +30,7 @@ async function main() {
     { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit' },
     { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara' },
     { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas' },
-    { fullName: 'Ato Habtamu Girma', email: 'cityadmin@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_ADMIN', password: 'City@habtamu' },
+    { fullName: 'Ato Habtamu Girma', email: 'revenue@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_REVENUE_OFFICER', password: 'Revenue@habtamu' },
   ]
   const staffRecords: Record<string, { id: string; fullName: string }> = {}
   for (const s of staff) {
@@ -50,7 +50,7 @@ async function main() {
     console.log(`  Staff: ${s.fullName} (${s.role}) — password: ${s.password}`)
   }
   console.log(`\n  >>> LEADER LOGIN: leader@bishoftu.gov.et / ${leaderPassword} <<<`)
-  console.log(`  >>> CITY ADMIN LOGIN: cityadmin@bishoftu.gov.et / City@habtamu <<<`)
+  console.log(`  >>> CITY REVENUE OFFICER LOGIN: revenue@bishoftu.gov.et / Revenue@habtamu <<<`)
   console.log('  >>> Change these passwords after first login! <<<')
 
   console.log('\n3. Seeding Tax Payers...')

@@ -162,7 +162,7 @@ export default function LoginPage() {
               />
               <RoleCard
                 icon={TrendingUp}
-                title="City Admin — Income Follow-up"
+                title="City Revenue Officer"
                 desc="Follows up city-wide income: expected vs collected by category, daily/weekly/monthly/yearly trends."
                 tone="border-violet-300 bg-violet-50/40 dark:border-violet-800 dark:bg-violet-950/20"
                 iconTone="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"

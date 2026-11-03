@@ -129,19 +129,35 @@ Every user must log in with email + password. Sessions are signed JWTs stored in
 - Every API route checks the session via `getSession()` or `requireRole(...)`
 - Permission matrix is enforced **server-side** (not just hidden in the UI):
 
-| Action | Leader | Team 1 — Assignment | Team 2 — Finance Office |
-|---|:---:|:---:|:---:|
-| View dashboard, registry, assignments | ✅ | ✅ | ✅ |
-| Add / edit / deactivate tax payers | ✅ | ✅ | — |
-| Block / unblock tax payers | ✅ | — | — |
-| Create new assignment | ✅ | ✅ | — |
-| Receive bank receipt (+ attachments) | ✅ | — | ✅ |
-| Issue government receipt | ✅ | — | ✅ |
-| Issue govt receipt while disputed | ✅ | — | — |
-| Mark / resolve dispute | ✅ | — | — |
-| Cancel assignment | ✅ | — | — |
-| Delete attachments | ✅ | — | — |
-| Manage staff (add, edit, reset password, deactivate) | ✅ | — | — |
+| Action | Leader | Team 1 — Assignment | Team 2 — Finance Office | City Revenue Officer |
+|---|:---:|:---:|:---:|:---:|
+| View dashboard, registry, assignments | ✅ | ✅ | ✅ | ✅ |
+| Add / edit / deactivate tax payers | ✅ | ✅ | — | — |
+| Block / unblock tax payers | ✅ | — | — | — |
+| Create new assignment | ✅ | ✅ | — | — |
+| Receive bank receipt (+ attachments) | ✅ | — | ✅ | — |
+| Issue government receipt | ✅ | — | ✅ | — |
+| Issue govt receipt while disputed | ✅ | — | — | — |
+| Mark / resolve dispute | ✅ | — | — | — |
+| Cancel assignment | ✅ | — | — | — |
+| Delete attachments | ✅ | — | — | — |
+| Manage staff (add, edit, reset password, deactivate) | ✅ | — | — | — |
+| View City Revenue dashboard + Tax Targets | ✅ | — | — | ✅ |
+| Set / edit / delete yearly tax targets | ✅ | — | — | — |
+
+## City Revenue Officer role
+
+A dedicated role for following up city-wide income. Has read access to two extra tabs:
+
+- **City Revenue** — compares expected vs collected tax across all categories for the selected fiscal year:
+  - 4 top KPIs: Expected (yearly target), Collected (so far), Outstanding, Collection Rate %
+  - 4 period totals: Today, This Week, This Month, This Fiscal Year (all in ETB)
+  - City-wide collection progress bar (X% of target)
+  - Expected vs Collected table broken down by category (Business, Property, Individual Income, Vehicle, VAT, Withholding) with rate badges
+  - Collection trend chart (toggle between Daily / Weekly / Monthly view)
+  - Recent collections feed (last 15 completed payments, auto-refreshes every 30s)
+  - Fiscal year selector
+- **Tax Targets** — view the yearly expected tax targets set by the Leader (city-wide and per-woreda, per-category). The City Revenue Officer can view but not edit; only the Leader can create/edit/delete targets.
 
 ## Production deployment
 
