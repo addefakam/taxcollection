@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
 
   const staff = await db.staff.findUnique({
     where: { email: email.toLowerCase().trim() },
+    include: { assignedWoreda: true },
   })
 
   if (!staff || !staff.active) {
@@ -45,12 +46,26 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Create session
+  // Validate that DATA_COLLECTOR staff have an assigned woreda
+  if (staff.role === 'DATA_COLLECTOR' && !staff.assignedWoredaId) {
+    return NextResponse.json(
+      {
+        error:
+          'Your Data Collector account is not assigned to any woreda. Ask the Leader to assign you to a woreda.',
+      },
+      { status: 403 }
+    )
+  }
+
+  // Create session with woreda info for DATA_COLLECTOR
   await createSession({
     id: staff.id,
     fullName: staff.fullName,
     email: staff.email,
-    role: staff.role as 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE',
+    role: staff.role as 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR',
+    assignedWoredaId: staff.assignedWoredaId,
+    assignedWoredaName: staff.assignedWoreda?.name || null,
+    assignedWoredaCode: staff.assignedWoreda?.code || null,
   })
 
   return NextResponse.json({
@@ -60,6 +75,9 @@ export async function POST(req: NextRequest) {
       fullName: staff.fullName,
       email: staff.email,
       role: staff.role,
+      assignedWoredaId: staff.assignedWoredaId,
+      assignedWoredaName: staff.assignedWoreda?.name || null,
+      assignedWoredaCode: staff.assignedWoreda?.code || null,
     },
   })
 }

@@ -18,9 +18,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const body = await req.json()
   const { fullName, email, phone, role, active } = body
 
-  if (role && !['LEADER', 'TEAM_1_ASSIGNMENT', 'TEAM_2_FINANCE', 'CITY_REVENUE_OFFICER'].includes(role)) {
+  if (role && !['LEADER', 'TEAM_1_ASSIGNMENT', 'TEAM_2_FINANCE', 'CITY_REVENUE_OFFICER', 'DATA_COLLECTOR'].includes(role)) {
     return NextResponse.json(
-      { error: 'Invalid role. Must be LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, or CITY_REVENUE_OFFICER' },
+      { error: 'Invalid role. Must be LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER, or DATA_COLLECTOR' },
+      { status: 400 }
+    )
+  }
+
+  // Validate DATA_COLLECTOR must have assignedWoredaId
+  if (role === 'DATA_COLLECTOR' && body.assignedWoredaId === undefined) {
+    return NextResponse.json(
+      { error: 'Data Collector (Galmeessituu) must be assigned to a woreda' },
       { status: 400 }
     )
   }
@@ -33,6 +41,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
       ...(phone !== undefined && { phone }),
       ...(role !== undefined && { role }),
       ...(active !== undefined && { active }),
+      // Update assignedWoredaId: only DATA_COLLECTOR keeps it set; other roles get null
+      ...(role === 'DATA_COLLECTOR' && body.assignedWoredaId !== undefined && {
+        assignedWoredaId: body.assignedWoredaId || null,
+      }),
+      ...(role && role !== 'DATA_COLLECTOR' && { assignedWoredaId: null }),
     },
     select: {
       id: true,
@@ -41,6 +54,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
       phone: true,
       role: true,
       active: true,
+      assignedWoredaId: true,
+      assignedWoreda: { select: { id: true, code: true, name: true } },
     },
   })
   return NextResponse.json(s)

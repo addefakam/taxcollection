@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { getSession, requireRole } from '@/lib/auth'
 
 // GET /api/assignments?status=...&q=...&taxPayerId=...&disputed=...
-// Any logged-in staff can view.
+// Any logged-in staff can view. DATA_COLLECTOR only sees assignments in their assigned woreda.
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -31,6 +31,17 @@ export async function GET(req: NextRequest) {
     ]
   }
 
+  // Enforce woreda-scoped data for DATA_COLLECTOR
+  if (user.role === 'DATA_COLLECTOR') {
+    if (!user.assignedWoredaId) {
+      return NextResponse.json(
+        { error: 'Your account is not assigned to any woreda. Contact the Leader.' },
+        { status: 403 }
+      )
+    }
+    where.taxPayer = { woredaId: user.assignedWoredaId }
+  }
+
   const assignments = await db.taxAssignment.findMany({
     where,
     orderBy: { createdAt: 'desc' },
@@ -44,11 +55,12 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(assignments)
 }
 
-// POST /api/assignments  (Leader or Team 1)
+// POST /api/assignments  (Leader, Team 1, or DATA_COLLECTOR)
+// DATA_COLLECTOR can only assign taxpayers in their woreda.
 export async function POST(req: NextRequest) {
   let user
   try {
-    user = await requireRole('LEADER', 'TEAM_1_ASSIGNMENT')
+    user = await requireRole('LEADER', 'TEAM_1_ASSIGNMENT', 'DATA_COLLECTOR')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
@@ -73,13 +85,34 @@ export async function POST(req: NextRequest) {
   }
 
   // Check tax payer is not blocked
-  const tp = await db.taxPayer.findUnique({ where: { id: taxPayerId } })
+  const tp = await db.taxPayer.findUnique({
+    where: { id: taxPayerId },
+    include: { woreda: true },
+  })
   if (!tp) return NextResponse.json({ error: 'Tax payer not found' }, { status: 404 })
   if (tp.blocked) {
     return NextResponse.json(
       { error: `Tax payer ${tp.fullName} is blocked: ${tp.blockedReason || 'no reason given'}` },
       { status: 400 }
     )
+  }
+
+  // For DATA_COLLECTOR: enforce that the tax payer belongs to the collector's assigned woreda
+  if (user.role === 'DATA_COLLECTOR') {
+    if (!user.assignedWoredaId) {
+      return NextResponse.json(
+        { error: 'Your account is not assigned to any woreda. Contact the Leader.' },
+        { status: 403 }
+      )
+    }
+    if (tp.woredaId !== user.assignedWoredaId) {
+      return NextResponse.json(
+        {
+          error: `You can only create assignments for taxpayers in your assigned woreda (Woreda ${user.assignedWoredaCode || '?'}). This taxpayer is in ${tp.woreda?.name || 'an unassigned woreda'}.`,
+        },
+        { status: 403 }
+      )
+    }
   }
 
   // generate reference number BF-YYYY-XXXX

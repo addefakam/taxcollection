@@ -31,26 +31,40 @@ async function main() {
     { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara' },
     { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas' },
     { fullName: 'Ato Habtamu Girma', email: 'revenue@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_REVENUE_OFFICER', password: 'Revenue@habtamu' },
+    // Data Collectors (Galmeewwan) — one per woreda
+    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', assignedWoredaCode: '01', password: 'Woreda01@lemma' },
+    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', assignedWoredaCode: '02', password: 'Woreda02@chaltu' },
   ]
   const staffRecords: Record<string, { id: string; fullName: string }> = {}
   for (const s of staff) {
     const passwordHash = await hashPassword(s.password)
+    // Resolve assigned woreda ID for DATA_COLLECTOR accounts
+    const assignedWoredaId = s.assignedWoredaCode ? woredaRecords[s.assignedWoredaCode]?.id : undefined
+    if (s.role === 'DATA_COLLECTOR' && !assignedWoredaId) {
+      console.log(`  WARN: cannot resolve woreda ${s.assignedWoredaCode} for ${s.email}`)
+    }
     const rec = await db.staff.upsert({
       where: { email: s.email },
-      update: { passwordHash }, // also set password if re-seeded
+      update: { passwordHash, assignedWoredaId: assignedWoredaId || null },
       create: {
         fullName: s.fullName,
         email: s.email,
         phone: s.phone,
         role: s.role,
         passwordHash,
+        assignedWoredaId: assignedWoredaId || null,
       },
     })
     staffRecords[s.email] = rec
-    console.log(`  Staff: ${s.fullName} (${s.role}) — password: ${s.password}`)
+    console.log(
+      `  Staff: ${s.fullName} (${s.role}) — password: ${s.password}` +
+      (s.assignedWoredaCode ? ` [Woreda ${s.assignedWoredaCode}]` : '')
+    )
   }
   console.log(`\n  >>> LEADER LOGIN: leader@bishoftu.gov.et / ${leaderPassword} <<<`)
   console.log(`  >>> CITY REVENUE OFFICER LOGIN: revenue@bishoftu.gov.et / Revenue@habtamu <<<`)
+  console.log(`  >>> DATA COLLECTOR (Woreda 01): collector.woreda01@bishoftu.gov.et / Woreda01@lemma <<<`)
+  console.log(`  >>> DATA COLLECTOR (Woreda 02): collector.woreda02@bishoftu.gov.et / Woreda02@chaltu <<<`)
   console.log('  >>> Change these passwords after first login! <<<')
 
   console.log('\n3. Seeding Tax Payers...')

@@ -90,6 +90,22 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     password: 'Team2@yonas',
     tone: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
   },
+  {
+    role: 'DATA_COLLECTOR',
+    roleLabel: 'Galmeessituu — Woreda 01',
+    fullName: 'Ato Lemma Tariku',
+    email: 'collector.woreda01@bishoftu.gov.et',
+    password: 'Woreda01@lemma',
+    tone: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  },
+  {
+    role: 'DATA_COLLECTOR',
+    roleLabel: 'Galmeessituu — Woreda 02',
+    fullName: 'W/ro Chaltu Dube',
+    email: 'collector.woreda02@bishoftu.gov.et',
+    password: 'Woreda02@chaltu',
+    tone: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  },
 ]
 
 export default function LoginPage() {

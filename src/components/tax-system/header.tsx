@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { Building2, ChevronDown, LogOut, KeyRound, Mail, Shield } from 'lucide-react'
+import { Building2, ChevronDown, LogOut, KeyRound, Mail, Shield, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import type { SessionUser } from './app-shell'
 import { ROLES, Role } from './lib'
@@ -31,6 +31,7 @@ const ROLE_LABEL: Record<Role, string> = {
   TEAM_1_ASSIGNMENT: 'Team 1 — Assignment',
   TEAM_2_FINANCE: 'Team 2 — Finance Office',
   CITY_REVENUE_OFFICER: 'City Revenue Officer',
+  DATA_COLLECTOR: 'Galmeessituu',
 }
 
 interface HeaderProps {
@@ -123,6 +124,14 @@ export function Header({ user, onLogout }: HeaderProps) {
                 <Badge variant="secondary" className="text-[10px] hidden md:inline">
                   {ROLE_LABEL[user.role]}
                 </Badge>
+                {user.role === 'DATA_COLLECTOR' && user.assignedWoredaCode && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] hidden md:inline bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 border-rose-200 dark:border-rose-800"
+                  >
+                    Woreda {user.assignedWoredaCode}
+                  </Badge>
+                )}
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -136,6 +145,15 @@ export function Header({ user, onLogout }: HeaderProps) {
                   <Shield className="h-3 w-3 mr-1" />
                   {ROLES[user.role].label}
                 </Badge>
+                {user.role === 'DATA_COLLECTOR' && user.assignedWoredaName && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] w-fit mt-1 bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 border-rose-200 dark:border-rose-800"
+                  >
+                    <MapPin className="h-3 w-3 mr-1" />
+                    {user.assignedWoredaName}
+                  </Badge>
+                )}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setPwOpen(true)} className="gap-2 cursor-pointer">

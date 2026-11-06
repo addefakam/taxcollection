@@ -44,16 +44,25 @@ import {
   Clock,
   Copy,
   CheckCircle2,
+  MapPin,
 } from 'lucide-react'
 import { fmtDate } from './lib'
+
+interface Woreda {
+  id: string
+  code: string
+  name: string
+}
 
 interface StaffMember {
   id: string
   fullName: string
   email: string
   phone?: string | null
-  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER'
+  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR'
   active: boolean
+  assignedWoredaId?: string | null
+  assignedWoreda?: { id: string; code: string; name: string } | null
   lastLoginAt?: string | null
   createdAt: string
 }
@@ -63,6 +72,7 @@ const ROLE_LABEL: Record<string, string> = {
   TEAM_1_ASSIGNMENT: 'Team 1 — Assignment',
   TEAM_2_FINANCE: 'Team 2 — Finance Office',
   CITY_REVENUE_OFFICER: 'City Revenue Officer',
+  DATA_COLLECTOR: 'Galmeessituu (Data Collector)',
 }
 
 const ROLE_TONE: Record<string, string> = {
@@ -70,6 +80,7 @@ const ROLE_TONE: Record<string, string> = {
   TEAM_1_ASSIGNMENT: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   TEAM_2_FINANCE: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
   CITY_REVENUE_OFFICER: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  DATA_COLLECTOR: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
 }
 
 const emptyForm = {
@@ -78,12 +89,15 @@ const emptyForm = {
   phone: '',
   role: 'TEAM_1_ASSIGNMENT' as StaffMember['role'],
   password: '',
+  assignedWoredaId: 'NONE',
 }
 
 export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
   const { toast } = useToast()
   const [list, setList] = useState<StaffMember[]>([])
+  const [woredas, setWoredas] = useState<Woreda[]>([])
   const [loading, setLoading] = useState(true)
+  const [showOnlyCollectors, setShowOnlyCollectors] = useState(false)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<StaffMember | null>(null)
@@ -110,6 +124,19 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
     load()
   }, [load])
 
+  // Load woredas (for the woreda dropdown when creating a Data Collector)
+  useEffect(() => {
+    fetch('/api/woredas')
+      .then((r) => r.json())
+      .then((d) => setWoredas(d))
+      .catch(() => {})
+  }, [])
+
+  // Apply Galmeewwan filter: only show DATA_COLLECTOR accounts
+  const displayList = showOnlyCollectors
+    ? list.filter((s) => s.role === 'DATA_COLLECTOR')
+    : list
+
   const openCreate = () => {
     setForm(emptyForm)
     setEditing(null)
@@ -125,6 +152,7 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
       phone: s.phone || '',
       role: s.role,
       password: '',
+      assignedWoredaId: s.assignedWoredaId || 'NONE',
     })
     setGeneratedPw(null)
     setCreateOpen(true)
@@ -139,14 +167,34 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
       })
       return
     }
+    // Validate that DATA_COLLECTOR has an assigned woreda
+    if (form.role === 'DATA_COLLECTOR' && (form.assignedWoredaId === 'NONE' || !form.assignedWoredaId)) {
+      toast({
+        title: 'Missing woreda',
+        description: 'Data Collectors (Galmeewwan) must be assigned to a woreda.',
+        variant: 'destructive',
+      })
+      return
+    }
     setSaving(true)
     try {
+      const payload = {
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        role: form.role,
+        password: form.password || undefined,
+        assignedWoredaId:
+          form.role === 'DATA_COLLECTOR' && form.assignedWoredaId !== 'NONE'
+            ? form.assignedWoredaId
+            : undefined,
+      }
       const res = await fetch(
         editing ? `/api/staff/${editing.id}` : '/api/staff',
         {
           method: editing ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }
       )
       const data = await res.json()
@@ -244,18 +292,34 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
             Leader account was seeded at setup.
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <UserPlus className="h-4 w-4" /> Add Staff
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant={showOnlyCollectors ? 'default' : 'outline'}
+            onClick={() => setShowOnlyCollectors((v) => !v)}
+            className="gap-2"
+            title="Show only Data Collector (Galmeewwan) accounts"
+          >
+            <MapPin className="h-4 w-4" />
+            Galmeewwan
+            {showOnlyCollectors && (
+              <Badge variant="secondary" className="ml-1 text-[10px]">
+                {displayList.length}
+              </Badge>
+            )}
+          </Button>
+          <Button onClick={openCreate} className="gap-2">
+            <UserPlus className="h-4 w-4" /> Add Staff
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4 text-primary" />
-            All Staff
+            {showOnlyCollectors ? 'Galmeewwan (Data Collectors)' : 'All Staff'}
             <Badge variant="secondary" className="ml-1">
-              {loading ? '…' : list.length}
+              {loading ? '…' : displayList.length}
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -266,13 +330,13 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                 <Skeleton key={i} className="h-14" />
               ))}
             </div>
-          ) : list.length === 0 ? (
+          ) : displayList.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-sm text-muted-foreground">No staff members.</p>
             </div>
           ) : (
             <div className="divide-y">
-              {list.map((s) => (
+              {displayList.map((s) => (
                 <div key={s.id} className="p-4 hover:bg-muted/40">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -289,6 +353,12 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                           <Shield className="h-3 w-3 mr-1" />
                           {ROLE_LABEL[s.role]}
                         </span>
+                        {s.role === 'DATA_COLLECTOR' && s.assignedWoreda && (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            Woreda {s.assignedWoreda.code}
+                          </span>
+                        )}
                         {!s.active && (
                           <Badge variant="secondary" className="text-[10px]">
                             Inactive
@@ -302,6 +372,11 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                         {s.phone && (
                           <span className="flex items-center gap-1">
                             <Phone className="h-3 w-3" /> {s.phone}
+                          </span>
+                        )}
+                        {s.role === 'DATA_COLLECTOR' && s.assignedWoreda && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" /> {s.assignedWoreda.name}
                           </span>
                         )}
                         {s.lastLoginAt && (
@@ -437,10 +512,38 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                       <SelectItem value="TEAM_1_ASSIGNMENT">Team 1 — Assignment</SelectItem>
                       <SelectItem value="TEAM_2_FINANCE">Team 2 — Finance Office</SelectItem>
                       <SelectItem value="CITY_REVENUE_OFFICER">City Revenue Officer</SelectItem>
+                      <SelectItem value="DATA_COLLECTOR">Galmeessituu (Data Collector)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
+              {/* Woreda selector — only visible when role is DATA_COLLECTOR */}
+              {form.role === 'DATA_COLLECTOR' && (
+                <div className="space-y-1.5">
+                  <Label>Assigned Woreda (Sub-city) *</Label>
+                  <Select
+                    value={form.assignedWoredaId}
+                    onValueChange={(v) => setForm({ ...form, assignedWoredaId: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a woreda..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">— Select a woreda —</SelectItem>
+                      {woredas.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The Data Collector will only see taxpayers and assignments
+                    in this woreda. They cannot view or create data for other woredas.
+                  </p>
+                </div>
+              )}
               {!editing && (
                 <div className="space-y-1.5">
                   <Label>Password (optional)</Label>
