@@ -24,19 +24,24 @@ model Woreda {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  taxPayers TaxPayer[]
-  targets   YearlyTaxTarget[]
+  taxPayers       TaxPayer[]
+  targets         YearlyTaxTarget[]
+  assignedStaff   Staff[] @relation("StaffAssignedWoreda")
 }
 
-// Finance office staff members (Team 1 + Team 2 + Leader + City Revenue Officer)
+// Finance office staff members (Team 1 + Team 2 + Leader + City Revenue Officer + Data Collector/Galmeessituu)
 model Staff {
   id            String   @id @default(cuid())
   fullName      String
   email         String   @unique
   phone         String?
-  role          String   @default("TEAM_1_ASSIGNMENT") // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER
+  role          String   @default("TEAM_1_ASSIGNMENT") // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER, DATA_COLLECTOR
   passwordHash  String?
   active        Boolean  @default(true)
+  // For DATA_COLLECTOR role: the woreda (sub-city) this collector is assigned to.
+  // Other roles leave this null (they can see all woredas).
+  assignedWoredaId String?
+  assignedWoreda  Woreda? @relation("StaffAssignedWoreda", fields: [assignedWoredaId], references: [id])
   lastLoginAt   DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
