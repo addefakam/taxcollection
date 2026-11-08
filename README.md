@@ -121,6 +121,28 @@ bun run dev
 
 Open http://localhost:3000 — you'll be redirected to `/login`.
 
+### Local sandbox quick-start (if the database or dev server is missing)
+
+If the sandbox was reset (db folder gone, dev server down, "Network error" on login),
+run the one-shot setup script — it handles everything:
+
+```bash
+bash scripts/dev-setup.sh
+```
+
+This script:
+1. Swaps the Prisma schema to `sqlite` locally (git keeps `postgresql` for Neon production)
+2. Recreates the `db/` folder with a fresh SQLite file
+3. Writes the correct `.env` (`DATABASE_URL` + `SESSION_SECRET`)
+4. Pushes the schema + regenerates the Prisma client
+5. Verifies the `assignedWoredaId` field is in the generated client
+6. Re-seeds all sample data (woredas, 6 staff, 10 taxpayers, 13 tax targets, 8 assignments)
+7. Kills any stale dev server and starts a fresh one on port 3000
+8. Runs health checks (login page + Leader login + Galmeewwan login)
+
+You only need to run this when the sandbox is fresh. For normal development,
+`bun run dev` is enough.
+
 ## Authentication
 
 Every user must log in with email + password. Sessions are signed JWTs stored in httpOnly cookies (8-hour expiry).
