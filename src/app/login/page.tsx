@@ -143,7 +143,20 @@ export default function LoginPage() {
       router.replace('/')
       router.refresh()
     } catch {
-      setError('Network error. Please try again.')
+      // Check if database is uninitialized
+      try {
+        const setupRes = await fetch('/api/setup')
+        const setupData = await setupRes.json()
+        if (setupData.initialized === false) {
+          setError(
+            'Database is not initialized yet. Go to /setup to create tables and the Leader account.'
+          )
+        } else {
+          setError('Network error. Please try again.')
+        }
+      } catch {
+        setError('Network error. The server may be starting up. Please try again in a moment.')
+      }
     } finally {
       setLoading(false)
     }
@@ -498,6 +511,13 @@ export default function LoginPage() {
                 </div>
 
                 <div className="mt-4 pt-4 border-t text-xs text-muted-foreground space-y-1">
+                  <p>
+                    <span className="font-medium text-foreground">First deployment?</span>{' '}
+                    <a href="/setup" className="text-primary hover:underline">
+                      Initialize the database
+                    </a>{' '}
+                    to create tables and the Leader account.
+                  </p>
                   <p>
                     <span className="font-medium text-foreground">Need help?</span> Contact
                     the Finance Office IT desk.
