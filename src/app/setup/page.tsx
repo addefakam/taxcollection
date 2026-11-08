@@ -172,7 +172,7 @@ export default function SetupPage() {
                 )}
 
                 {result.ok && result.alreadyInitialized && (
-                  <div className="rounded-md border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 p-4">
+                  <div className="rounded-md border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sky-700 dark:text-sky-300">
                       <CheckCircle2 className="h-5 w-5" />
                       <p className="font-medium">Database is already initialized</p>
@@ -180,6 +180,34 @@ export default function SetupPage() {
                     <p className="text-sm text-sky-700 dark:text-sky-300 mt-1">
                       You can log in now with your Leader account.
                     </p>
+                    {result.created && (result.created.staff > 0 || result.created.woredas > 0 || result.created.taxTargets > 0) && (
+                      <div className="text-sm text-sky-700 dark:text-sky-300 space-y-1">
+                        <p>Additional data created in this run:</p>
+                        <ul className="list-disc list-inside ml-2">
+                          {result.created.woredas > 0 && <li>{result.created.woredas} woredas</li>}
+                          {result.created.staff > 0 && <li>{result.created.staff} staff accounts</li>}
+                          {result.created.taxTargets > 0 && <li>{result.created.taxTargets} yearly tax targets</li>}
+                        </ul>
+                      </div>
+                    )}
+                    {result.leaderCredentials && (
+                      <div className="rounded-md bg-background p-3 border border-sky-200 dark:border-sky-800">
+                        <p className="text-xs font-medium text-sky-700 dark:text-sky-300 mb-2 flex items-center gap-1">
+                          <KeyRound className="h-3 w-3" />
+                          Leader Login Credentials:
+                        </p>
+                        <div className="font-mono text-sm space-y-1">
+                          <p>
+                            <span className="text-muted-foreground">Email:</span>{' '}
+                            {result.leaderCredentials.email}
+                          </p>
+                          <p>
+                            <span className="text-muted-foreground">Password:</span>{' '}
+                            {result.leaderCredentials.password}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <Button className="w-full mt-3" onClick={() => (window.location.href = '/login')}>
                       Go to Login →
                     </Button>
