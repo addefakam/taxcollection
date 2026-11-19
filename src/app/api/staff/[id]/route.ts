@@ -4,11 +4,11 @@ import { requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// PUT /api/staff/[id]  (Leader only)
+// PUT /api/staff/[id]  (Leader or System Admin)
 // Body: { fullName?, email?, phone?, role?, active? }
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER')
+    await requireRole('LEADER', 'SYSTEM_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
@@ -61,10 +61,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
   return NextResponse.json(s)
 }
 
-// DELETE /api/staff/[id]  (Leader only — soft delete)
+// DELETE /api/staff/[id]  (Leader or System Admin — soft delete)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER')
+    await requireRole('LEADER', 'SYSTEM_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

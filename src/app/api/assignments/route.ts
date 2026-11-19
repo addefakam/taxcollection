@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   let user
   try {
-    user = await requireRole('LEADER', 'TEAM_1_ASSIGNMENT', 'DATA_COLLECTOR')
+    user = await requireRole('LEADER', 'SYSTEM_ADMIN', 'TEAM_1_ASSIGNMENT', 'DATA_COLLECTOR')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

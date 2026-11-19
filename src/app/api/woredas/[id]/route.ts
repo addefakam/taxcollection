@@ -7,7 +7,7 @@ type Params = { params: Promise<{ id: string }> }
 // PUT /api/woredas/[id]  (Leader only)
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER')
+    await requireRole('LEADER', 'SYSTEM_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
@@ -26,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // DELETE /api/woredas/[id]  (Leader only — soft delete)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER')
+    await requireRole('LEADER', 'SYSTEM_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

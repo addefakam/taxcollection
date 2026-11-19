@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 // POST /api/taxpayers  (Leader or Team 1; DATA_COLLECTOR can also create but only in their woreda)
 export async function POST(req: NextRequest) {
   try {
-    await requireRole('LEADER', 'TEAM_1_ASSIGNMENT', 'DATA_COLLECTOR')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'TEAM_1_ASSIGNMENT', 'DATA_COLLECTOR')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

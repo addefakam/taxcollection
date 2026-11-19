@@ -98,9 +98,12 @@ export async function requireSession(): Promise<SessionUser> {
   return user
 }
 
-/** Require an authenticated session with one of the given roles. Throws 403 if not allowed. */
+/** Require an authenticated session with one of the given roles. Throws 403 if not allowed.
+ *  SYSTEM_ADMIN is always allowed regardless of the roles list (super-user). */
 export async function requireRole(...roles: Role[]): Promise<SessionUser> {
   const user = await requireSession()
+  // SYSTEM_ADMIN is always allowed (super-user bypass)
+  if (user.role === 'SYSTEM_ADMIN') return user
   if (!roles.includes(user.role)) {
     throw new Response(
       JSON.stringify({

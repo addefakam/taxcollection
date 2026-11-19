@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 // DELETE /api/attachments/[id]  (Leader only)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER')
+    await requireRole('LEADER', 'SYSTEM_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

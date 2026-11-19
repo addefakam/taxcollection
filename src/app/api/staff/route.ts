@@ -40,11 +40,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(staff)
 }
 
-// POST /api/staff  (Leader only — creates a new staff member, optionally with password)
-// Body: { fullName, email, phone, role, password? }
+// POST /api/staff  (Leader or System Admin — creates a new staff member, optionally with password)
+// Body: { fullName, email, phone, role, password?, assignedWoredaId? }
 export async function POST(req: NextRequest) {
   try {
-    await requireRole('LEADER')
+    await requireRole('LEADER', 'SYSTEM_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

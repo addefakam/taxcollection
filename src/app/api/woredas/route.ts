@@ -17,7 +17,7 @@ export async function GET() {
 // POST /api/woredas  (Leader only)
 export async function POST(req: NextRequest) {
   try {
-    await requireRole('LEADER')
+    await requireRole('LEADER', 'SYSTEM_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

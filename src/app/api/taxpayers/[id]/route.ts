@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 // PUT /api/taxpayers/[id]  (Leader or Team 1)
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER', 'TEAM_1_ASSIGNMENT')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'TEAM_1_ASSIGNMENT')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
@@ -76,7 +76,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // DELETE /api/taxpayers/[id]  (Leader or Team 1 — soft delete)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER', 'TEAM_1_ASSIGNMENT')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'TEAM_1_ASSIGNMENT')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

@@ -10,7 +10,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function PATCH(req: NextRequest, { params }: Params) {
   let user
   try {
-    user = await requireRole('LEADER', 'TEAM_2_FINANCE')
+    user = await requireRole('LEADER', 'SYSTEM_ADMIN', 'TEAM_2_FINANCE')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
