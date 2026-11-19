@@ -12,6 +12,7 @@ export interface SetupResult {
     taxTargets: number
   }
   leaderCredentials?: { email: string; password: string }
+  adminCredentials?: { email: string; password: string }
   error?: string
 }
 
@@ -42,8 +43,10 @@ export async function setupDatabase(): Promise<SetupResult> {
 
   // --- 2. Seed staff (all accounts shown on the login page demo panel) ---
   const leaderPassword = 'Bishoftu@2026' // default leader password — change after first login
+  const adminPassword = 'Admin@2026' // default system admin password — change after first login!
   const staff = [
     { fullName: 'Ato Tesfaye Lemma', email: 'leader@bishoftu.gov.et', phone: '+251911100001', role: 'LEADER', password: leaderPassword, assignedWoredaCode: null },
+    { fullName: 'Ato Dereje Bekele', email: 'admin@bishoftu.gov.et', phone: '+251911100000', role: 'SYSTEM_ADMIN', password: adminPassword, assignedWoredaCode: null },
     { fullName: 'Ato Habtamu Girma', email: 'revenue@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_REVENUE_OFFICER', password: 'Revenue@habtamu', assignedWoredaCode: null },
     { fullName: 'W/ro Almaz Bekele', email: 'almaz.bekele@bishoftu.gov.et', phone: '+251911100002', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@almaz', assignedWoredaCode: null },
     { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit', assignedWoredaCode: null },
@@ -103,6 +106,7 @@ export async function setupDatabase(): Promise<SetupResult> {
       taxTargets: targetCount,
     },
     leaderCredentials: { email: 'leader@bishoftu.gov.et', password: leaderPassword },
+    adminCredentials: { email: 'admin@bishoftu.gov.et', password: adminPassword },
   }
 }
 

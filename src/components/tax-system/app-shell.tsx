@@ -10,6 +10,7 @@ import { ProcessTracker } from './process-tracker'
 import { StaffManagement } from './staff-management'
 import { RevenueDashboard } from './revenue-dashboard'
 import { TaxTargets } from './tax-targets'
+import { PermissionsManagement } from './permissions-management'
 import { RoleProvider } from './role-context'
 import { ROLES, Role } from './lib'
 import {
@@ -21,6 +22,7 @@ import {
   Info,
   TrendingUp,
   Target,
+  Shield,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -39,6 +41,7 @@ type Tab =
   | 'revenue'
   | 'targets'
   | 'staff'
+  | 'permissions'
 
 const TABS: Array<{
   key: Tab
@@ -66,7 +69,13 @@ const TABS: Array<{
     key: 'staff',
     label: 'Staff Management',
     icon: UserCog,
-    visibleTo: ['LEADER'],
+    visibleTo: ['LEADER', 'SYSTEM_ADMIN'],
+  },
+  {
+    key: 'permissions',
+    label: 'Permissions',
+    icon: Shield,
+    visibleTo: ['SYSTEM_ADMIN'],
   },
 ]
 
@@ -125,6 +134,7 @@ export function AppShell({ user }: { user: SessionUser }) {
           {safeTab === 'staff' && selectedTab && (
             <StaffManagement currentUser={user} />
           )}
+          {safeTab === 'permissions' && selectedTab && <PermissionsManagement />}
         </main>
 
         <footer className="mt-auto border-t bg-muted/30">

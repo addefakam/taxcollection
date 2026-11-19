@@ -43,6 +43,14 @@ interface DemoAccount {
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
   {
+    role: 'SYSTEM_ADMIN',
+    roleLabel: 'System Admin',
+    fullName: 'Ato Dereje Bekele',
+    email: 'admin@bishoftu.gov.et',
+    password: 'Admin@2026',
+    tone: 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900',
+  },
+  {
     role: 'LEADER',
     roleLabel: 'Finance Leader',
     fullName: 'Ato Tesfaye Lemma',

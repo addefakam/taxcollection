@@ -29,13 +29,14 @@ model Woreda {
   assignedStaff   Staff[] @relation("StaffAssignedWoreda")
 }
 
-// Finance office staff members (Team 1 + Team 2 + Leader + City Revenue Officer + Data Collector/Galmeessituu)
+// Finance office staff members
+// Roles: LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER, DATA_COLLECTOR, SYSTEM_ADMIN
 model Staff {
   id            String   @id @default(cuid())
   fullName      String
   email         String   @unique
   phone         String?
-  role          String   @default("TEAM_1_ASSIGNMENT") // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER, DATA_COLLECTOR
+  role          String   @default("TEAM_1_ASSIGNMENT") // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER, DATA_COLLECTOR, SYSTEM_ADMIN
   passwordHash  String?
   active        Boolean  @default(true)
   // For DATA_COLLECTOR role: the woreda (sub-city) this collector is assigned to.
@@ -51,6 +52,21 @@ model Staff {
   governmentReceiptsIssuedBy TaxAssignment[] @relation("StaffGovtReceiptIssuer")
   history                   AssignmentHistory[]
   taxTargetsSet             YearlyTaxTarget[]
+}
+
+// Dynamic permission matrix — System Admin can toggle these per role.
+// Each row = "can role X perform action Y?"
+// If no row exists for a (role, action) pair, the default from ACTIONS
+// constant in src/lib/permissions.ts is used.
+model Permission {
+  id        String   @id @default(cuid())
+  role      String   // LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER, DATA_COLLECTOR, SYSTEM_ADMIN
+  action    String   // e.g. ADD_TAXPAYER, BLOCK_TAXPAYER, CREATE_ASSIGNMENT, etc.
+  allowed   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([role, action])
 }
 
 // ---- Tax payer registry ---------------------------------------------------

@@ -1,6 +1,6 @@
 // Shared types, constants, and helpers for the Bishoftu Tax Collection System
 
-export type Role = 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR'
+export type Role = 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR' | 'SYSTEM_ADMIN'
 
 export const ROLES: Record<Role, { label: string; description: string }> = {
   LEADER: {
@@ -22,6 +22,10 @@ export const ROLES: Record<Role, { label: string; description: string }> = {
   DATA_COLLECTOR: {
     label: 'Galmeessituu (Data Collector)',
     description: 'Field officer assigned to one woreda — can only see taxpayers and assignments in their assigned sub-city',
+  },
+  SYSTEM_ADMIN: {
+    label: 'System Admin',
+    description: 'Controls what every role can do — manages the permission matrix for the entire system',
   },
 }
 

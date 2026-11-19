@@ -59,7 +59,7 @@ interface StaffMember {
   fullName: string
   email: string
   phone?: string | null
-  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR'
+  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR' | 'SYSTEM_ADMIN'
   active: boolean
   assignedWoredaId?: string | null
   assignedWoreda?: { id: string; code: string; name: string } | null
@@ -73,6 +73,7 @@ const ROLE_LABEL: Record<string, string> = {
   TEAM_2_FINANCE: 'Team 2 — Finance Office',
   CITY_REVENUE_OFFICER: 'City Revenue Officer',
   DATA_COLLECTOR: 'Galmeessituu (Data Collector)',
+  SYSTEM_ADMIN: 'System Admin',
 }
 
 const ROLE_TONE: Record<string, string> = {
@@ -81,6 +82,7 @@ const ROLE_TONE: Record<string, string> = {
   TEAM_2_FINANCE: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
   CITY_REVENUE_OFFICER: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
   DATA_COLLECTOR: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  SYSTEM_ADMIN: 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900',
 }
 
 const emptyForm = {
@@ -513,6 +515,7 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                       <SelectItem value="TEAM_2_FINANCE">Team 2 — Finance Office</SelectItem>
                       <SelectItem value="CITY_REVENUE_OFFICER">City Revenue Officer</SelectItem>
                       <SelectItem value="DATA_COLLECTOR">Galmeessituu (Data Collector)</SelectItem>
+                      <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

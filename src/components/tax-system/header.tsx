@@ -32,6 +32,7 @@ const ROLE_LABEL: Record<Role, string> = {
   TEAM_2_FINANCE: 'Team 2 — Finance Office',
   CITY_REVENUE_OFFICER: 'City Revenue Officer',
   DATA_COLLECTOR: 'Galmeessituu',
+  SYSTEM_ADMIN: 'System Admin',
 }
 
 interface HeaderProps {
