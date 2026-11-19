@@ -8,6 +8,7 @@ import { TaxPayers } from './taxpayers'
 import { Assignments } from './assignments'
 import { ProcessTracker } from './process-tracker'
 import { StaffManagement } from './staff-management'
+import { WoredasManagement } from './woredas-management'
 import { RevenueDashboard } from './revenue-dashboard'
 import { TaxTargets } from './tax-targets'
 import { PermissionsManagement } from './permissions-management'
@@ -23,6 +24,7 @@ import {
   TrendingUp,
   Target,
   Shield,
+  MapPin,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -41,6 +43,7 @@ type Tab =
   | 'revenue'
   | 'targets'
   | 'staff'
+  | 'woredas'
   | 'permissions'
 
 const TABS: Array<{
@@ -69,6 +72,12 @@ const TABS: Array<{
     key: 'staff',
     label: 'Staff Management',
     icon: UserCog,
+    visibleTo: ['LEADER', 'SYSTEM_ADMIN'],
+  },
+  {
+    key: 'woredas',
+    label: 'Sub-Cities',
+    icon: MapPin,
     visibleTo: ['LEADER', 'SYSTEM_ADMIN'],
   },
   {
@@ -134,6 +143,7 @@ export function AppShell({ user }: { user: SessionUser }) {
           {safeTab === 'staff' && selectedTab && (
             <StaffManagement currentUser={user} />
           )}
+          {safeTab === 'woredas' && selectedTab && <WoredasManagement />}
           {safeTab === 'permissions' && selectedTab && <PermissionsManagement />}
         </main>
 
