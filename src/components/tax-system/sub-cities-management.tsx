@@ -154,6 +154,10 @@ export function SubCitiesManagement() {
       toast({ title: 'Missing field', description: 'Name is required.', variant: 'destructive' })
       return
     }
+    if (!wForm.subCityId) {
+      toast({ title: 'Missing sub-city', description: 'Please select a sub-city.', variant: 'destructive' })
+      return
+    }
     setWSaving(true)
     try {
       const res = await fetch(
@@ -185,14 +189,9 @@ export function SubCitiesManagement() {
             Manage the geographic hierarchy: City → Sub-City → Woreda. Each name is unique.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => openWCreate()} className="gap-2">
-            <MapPin className="h-4 w-4" /> Add Woreda
-          </Button>
-          <Button onClick={openScCreate} className="gap-2">
+        <Button onClick={openScCreate} className="gap-2">
             <Plus className="h-4 w-4" /> Add Sub-City
           </Button>
-        </div>
       </div>
 
       {loading ? (
@@ -294,11 +293,10 @@ export function SubCitiesManagement() {
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-1.5">
-              <Label>Sub-City</Label>
+              <Label>Sub-City *</Label>
               <Select value={wForm.subCityId || 'NONE'} onValueChange={(v) => setWForm({ ...wForm, subCityId: v === 'NONE' ? '' : v })}>
                 <SelectTrigger><SelectValue placeholder="Select a sub-city..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NONE">— No sub-city (standalone) —</SelectItem>
                   {subCities.filter((sc) => sc.active).map((sc) => (
                     <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
                   ))}

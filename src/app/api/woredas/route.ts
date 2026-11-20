@@ -40,17 +40,18 @@ export async function POST(req: NextRequest) {
   if (!name) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
+  if (!subCityId) {
+    return NextResponse.json({ error: 'subCityId is required — woredas must belong to a sub-city' }, { status: 400 })
+  }
   const exists = await db.woreda.findUnique({ where: { name } })
   if (exists) {
     return NextResponse.json({ error: `Woreda "${name}" already exists` }, { status: 409 })
   }
 
-  // Validate subCityId if provided
-  if (subCityId) {
-    const sc = await db.subCity.findUnique({ where: { id: subCityId } })
-    if (!sc) {
-      return NextResponse.json({ error: 'Sub-City not found' }, { status: 400 })
-    }
+  // Validate subCityId
+  const sc = await db.subCity.findUnique({ where: { id: subCityId } })
+  if (!sc) {
+    return NextResponse.json({ error: 'Sub-City not found' }, { status: 400 })
   }
 
   const w = await db.woreda.create({

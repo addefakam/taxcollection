@@ -23,22 +23,29 @@ export async function setupDatabase(): Promise<SetupResult> {
   const existingLeader = await db.staff.findFirst({ where: { role: 'LEADER' } })
   const wasAlreadyInitialized = !!existingLeader
 
-  // --- 1. Seed woredas (upsert — safe to re-run) ---
-  const woredas = [
-    { name: 'Bishoftu Town Center', region: 'Oromia' },
-    { name: 'Lake Side', region: 'Oromia' },
-    { name: 'Africa Avenue', region: 'Oromia' },
-    { name: 'Industrial Zone', region: 'Oromia' },
-    { name: 'Asella Road', region: 'Oromia' },
+  // --- 1. Seed sub-cities + woredas under them ---
+  const subCitiesData = [
+    { name: 'Bishoftu Central', region: 'Oromia', woredas: ['Town Center', 'Bole Road'] },
+    { name: 'Lake Side', region: 'Oromia', woredas: ['Lake Front', 'Riverside'] },
+    { name: 'Industrial Zone', region: 'Oromia', woredas: ['Factory Area', 'Warehouse District'] },
   ]
   const woredaRecords: Record<string, { id: string }> = {}
-  for (const w of woredas) {
-    const rec = await db.woreda.upsert({
-      where: { name: w.name },
+  for (const scData of subCitiesData) {
+    // Create the sub-city
+    const sc = await db.subCity.upsert({
+      where: { name: scData.name },
       update: {},
-      create: w,
+      create: { name: scData.name, region: scData.region },
     })
-    woredaRecords[w.name] = rec
+    // Create woredas under this sub-city
+    for (const wName of scData.woredas) {
+      const w = await db.woreda.upsert({
+        where: { name: wName },
+        update: {},
+        create: { name: wName, region: scData.region, subCityId: sc.id },
+      })
+      woredaRecords[wName] = w
+    }
   }
 
   // --- 2. Seed staff (all accounts shown on the login page demo panel) ---
@@ -52,8 +59,8 @@ export async function setupDatabase(): Promise<SetupResult> {
     { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit', assignedWoredaName: null },
     { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara', assignedWoredaName: null },
     { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas', assignedWoredaName: null },
-    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', password: 'Woreda01@lemma', assignedWoredaName: 'Bishoftu Town Center' },
-    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', password: 'Woreda02@chaltu', assignedWoredaName: 'Lake Side' },
+    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', password: 'Woreda01@lemma', assignedWoredaName: 'Town Center' },
+    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', password: 'Woreda02@chaltu', assignedWoredaName: 'Lake Front' },
   ]
   let staffCount = 0
   for (const s of staff) {
