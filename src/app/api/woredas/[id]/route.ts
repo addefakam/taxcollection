@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// PUT /api/woredas/[id]  (Leader only)
+// PUT /api/woredas/[id]  (Leader or System Admin)
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
     await requireRole('LEADER', 'SYSTEM_ADMIN')
@@ -15,10 +15,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { id } = await params
   const body = await req.json()
-  const { code, name, region, active } = body
+  const { code, name, region, active, subCityId } = body
   const w = await db.woreda.update({
     where: { id },
-    data: { code, name, region, active },
+    data: {
+      code,
+      name,
+      region,
+      active,
+      subCityId: subCityId === '' ? null : subCityId,
+    },
+    include: { subCity: true },
   })
   return NextResponse.json(w)
 }

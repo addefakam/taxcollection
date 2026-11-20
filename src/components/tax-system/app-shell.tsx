@@ -8,7 +8,7 @@ import { TaxPayers } from './taxpayers'
 import { Assignments } from './assignments'
 import { ProcessTracker } from './process-tracker'
 import { StaffManagement } from './staff-management'
-import { WoredasManagement } from './woredas-management'
+import { SubCitiesManagement } from './sub-cities-management'
 import { RevenueDashboard } from './revenue-dashboard'
 import { TaxTargets } from './tax-targets'
 import { PermissionsManagement } from './permissions-management'
@@ -25,6 +25,7 @@ import {
   Target,
   Shield,
   MapPin,
+  Layers,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -77,7 +78,7 @@ const TABS: Array<{
   {
     key: 'woredas',
     label: 'Sub-Cities',
-    icon: MapPin,
+    icon: Layers,
     visibleTo: ['LEADER', 'SYSTEM_ADMIN'],
   },
   {
@@ -143,7 +144,7 @@ export function AppShell({ user }: { user: SessionUser }) {
           {safeTab === 'staff' && selectedTab && (
             <StaffManagement currentUser={user} />
           )}
-          {safeTab === 'woredas' && selectedTab && <WoredasManagement />}
+          {safeTab === 'woredas' && selectedTab && <SubCitiesManagement />}
           {safeTab === 'permissions' && selectedTab && <PermissionsManagement />}
         </main>
 

@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
   // Neon requires a connection pool size limit; directUrl is optional
   // directUrl = env("DIRECT_URL")
@@ -14,15 +14,31 @@ datasource db {
 
 // ---- Master data -----------------------------------------------------------
 
-// Sub-city / district (Woreda) master table
-model Woreda {
+// Sub-City (Kifle Ketema) — groups multiple woredas together.
+// Hierarchy: City (Bishoftu) > Sub-City > Woreda
+model SubCity {
   id        String   @id @default(cuid())
-  code      String   @unique // e.g. "01"
-  name      String   // e.g. "Woreda 01 - Bishoftu Town Center"
+  code      String   @unique // e.g. "SC-01"
+  name      String   // e.g. "Bishoftu Town Center Sub-City"
   region    String?  // e.g. "Oromia"
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  woredas Woreda[]
+}
+
+// Woreda (sub-district) — belongs to a Sub-City.
+model Woreda {
+  id         String   @id @default(cuid())
+  code       String   @unique // e.g. "01"
+  name       String   // e.g. "Woreda 01 - Town Center"
+  region     String?  // e.g. "Oromia"
+  subCityId  String?
+  subCity    SubCity? @relation(fields: [subCityId], references: [id])
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   taxPayers       TaxPayer[]
   targets         YearlyTaxTarget[]
