@@ -316,7 +316,7 @@ function AssignmentCard({
         </p>
         <p className="text-[11px] text-muted-foreground font-mono">
           {a.taxPayer.tin}
-          {a.taxPayer.woreda && <> · W{a.taxPayer.woreda.code}</>}
+          {a.taxPayer.woreda && <> · {a.taxPayer.woreda.name}</>}
         </p>
         <div className="mt-2 space-y-1">
           <div className="flex items-center justify-between text-xs">

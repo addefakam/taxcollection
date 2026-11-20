@@ -57,7 +57,6 @@ import {
 
 interface Woreda {
   id: string
-  code: string
   name: string
 }
 
@@ -368,7 +367,7 @@ export function TaxPayers() {
                           {tp.phone || '—'}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground">
-                          {tp.woreda ? `Woreda ${tp.woreda.code}` : '—'}
+                          {tp.woreda ? `Woreda: ${tp.woreda.name}` : '—'}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Badge variant="secondary">{tp._count?.assignments || 0}</Badge>
@@ -441,7 +440,7 @@ export function TaxPayers() {
                       <span className="flex items-center gap-1">
                         <Phone className="h-3 w-3" /> {tp.phone || '—'}
                       </span>
-                      {tp.woreda && <Badge variant="secondary">Woreda {tp.woreda.code}</Badge>}
+                      {tp.woreda && <Badge variant="secondary">Woreda: {tp.woreda.name}</Badge>}
                     </div>
                   </button>
                 ))}

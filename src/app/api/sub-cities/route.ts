@@ -3,20 +3,18 @@ import { db } from '@/lib/db'
 import { getSession, requireRole } from '@/lib/auth'
 
 // GET /api/sub-cities — list all sub-cities with their woredas
-// Any logged-in staff can view.
 export async function GET() {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const subCities = await db.subCity.findMany({
-    orderBy: { code: 'asc' },
+    orderBy: { name: 'asc' },
     include: {
       _count: { select: { woredas: true } },
       woredas: {
-        orderBy: { code: 'asc' },
+        orderBy: { name: 'asc' },
         select: {
           id: true,
-          code: true,
           name: true,
           active: true,
           _count: { select: { taxPayers: true } },
@@ -37,17 +35,17 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { code, name, region } = body
+  const { name, region } = body
 
-  if (!code || !name) {
-    return NextResponse.json({ error: 'code and name are required' }, { status: 400 })
+  if (!name) {
+    return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
 
-  const exists = await db.subCity.findUnique({ where: { code } })
+  const exists = await db.subCity.findUnique({ where: { name } })
   if (exists) {
-    return NextResponse.json({ error: `Sub-City with code ${code} already exists` }, { status: 409 })
+    return NextResponse.json({ error: `Sub-City "${name}" already exists` }, { status: 409 })
   }
 
-  const sc = await db.subCity.create({ data: { code, name, region } })
+  const sc = await db.subCity.create({ data: { name, region } })
   return NextResponse.json(sc, { status: 201 })
 }

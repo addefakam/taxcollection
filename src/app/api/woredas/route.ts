@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
 
   const woredas = await db.woreda.findMany({
     where,
-    orderBy: { code: 'asc' },
+    orderBy: { name: 'asc' },
     include: {
-      subCity: { select: { id: true, code: true, name: true } },
+      subCity: { select: { id: true, name: true } },
       _count: { select: { taxPayers: true } },
     },
   })
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/woredas  (Leader or System Admin)
-// Body: { code, name, region?, subCityId? }
+// Body: { name, region?, subCityId? }
 export async function POST(req: NextRequest) {
   try {
     await requireRole('LEADER', 'SYSTEM_ADMIN')
@@ -36,13 +36,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { code, name, region, subCityId } = body
-  if (!code || !name) {
-    return NextResponse.json({ error: 'code and name are required' }, { status: 400 })
+  const { name, region, subCityId } = body
+  if (!name) {
+    return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
-  const exists = await db.woreda.findUnique({ where: { code } })
+  const exists = await db.woreda.findUnique({ where: { name } })
   if (exists) {
-    return NextResponse.json({ error: `Woreda ${code} already exists` }, { status: 409 })
+    return NextResponse.json({ error: `Woreda "${name}" already exists` }, { status: 409 })
   }
 
   // Validate subCityId if provided
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   const w = await db.woreda.create({
-    data: { code, name, region, subCityId: subCityId || null },
+    data: { name, region, subCityId: subCityId || null },
     include: { subCity: true },
   })
   return NextResponse.json(w, { status: 201 })

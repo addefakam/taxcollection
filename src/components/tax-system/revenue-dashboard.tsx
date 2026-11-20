@@ -523,7 +523,7 @@ export function RevenueDashboard() {
                     <p className="font-medium truncate text-sm">{r.taxPayer.fullName}</p>
                     <p className="text-xs text-muted-foreground">
                       {r.taxPayer.tin} · {categoryLabel(r.taxPayer.category)}
-                      {r.taxPayer.woreda && <> · Woreda {r.taxPayer.woreda.code}</>}
+                      {r.taxPayer.woreda && <> · Woreda: {r.taxPayer.woreda.name}</>}
                     </p>
                   </div>
                   <div className="text-right">

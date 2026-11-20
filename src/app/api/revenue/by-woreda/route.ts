@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     {
       woredaId: string
       woredaName: string
-      woredaCode: string
+      woredaName: string
       expected: number
       collected: number
       collectedCount: number
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     byWoreda.set(w.id, {
       woredaId: w.id,
       woredaName: w.name,
-      woredaCode: w.code,
+      woredaName: w.code,
       expected: 0,
       collected: 0,
       collectedCount: 0,
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   byWoreda.set('__none__', {
     woredaId: '__none__',
     woredaName: 'Unassigned Woreda',
-    woredaCode: '—',
+    woredaName: '—',
     expected: 0,
     collected: 0,
     collectedCount: 0,

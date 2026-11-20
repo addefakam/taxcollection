@@ -577,7 +577,7 @@ export function Assignments() {
                           <p className="text-xs text-muted-foreground font-mono">
                             {a.taxPayer.tin} · {categoryLabel(a.taxPayer.category)}
                             {a.taxPayer.woreda && (
-                              <> · Woreda {a.taxPayer.woreda.code}</>
+                              <> · Woreda: {a.taxPayer.woreda.name}</>
                             )}
                           </p>
                         </div>

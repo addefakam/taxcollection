@@ -18,8 +18,7 @@ datasource db {
 // Hierarchy: City (Bishoftu) > Sub-City > Woreda
 model SubCity {
   id        String   @id @default(cuid())
-  code      String   @unique // e.g. "SC-01"
-  name      String   // e.g. "Bishoftu Town Center Sub-City"
+  name      String   @unique
   region    String?  // e.g. "Oromia"
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -31,8 +30,7 @@ model SubCity {
 // Woreda (sub-district) — belongs to a Sub-City.
 model Woreda {
   id         String   @id @default(cuid())
-  code       String   @unique // e.g. "01"
-  name       String   // e.g. "Woreda 01 - Town Center"
+  name       String   @unique
   region     String?  // e.g. "Oromia"
   subCityId  String?
   subCity    SubCity? @relation(fields: [subCityId], references: [id])

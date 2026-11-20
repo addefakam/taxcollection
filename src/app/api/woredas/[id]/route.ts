@@ -15,11 +15,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { id } = await params
   const body = await req.json()
-  const { code, name, region, active, subCityId } = body
+  const { name, region, active, subCityId } = body
   const w = await db.woreda.update({
     where: { id },
     data: {
-      code,
       name,
       region,
       active,
@@ -30,7 +29,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   return NextResponse.json(w)
 }
 
-// DELETE /api/woredas/[id]  (Leader only — soft delete)
+// DELETE /api/woredas/[id]  (Leader or System Admin — soft delete)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
     await requireRole('LEADER', 'SYSTEM_ADMIN')

@@ -50,7 +50,6 @@ import { fmtDate } from './lib'
 
 interface Woreda {
   id: string
-  code: string
   name: string
 }
 
@@ -62,7 +61,7 @@ interface StaffMember {
   role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR' | 'SYSTEM_ADMIN'
   active: boolean
   assignedWoredaId?: string | null
-  assignedWoreda?: { id: string; code: string; name: string } | null
+  assignedWoreda?: { id: string; name: string } | null
   lastLoginAt?: string | null
   createdAt: string
 }
@@ -358,7 +357,7 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                         {s.role === 'DATA_COLLECTOR' && s.assignedWoreda && (
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                             <MapPin className="h-3 w-3 mr-1" />
-                            Woreda {s.assignedWoreda.code}
+                            Woreda: {s.assignedWoreda.code}
                           </span>
                         )}
                         {!s.active && (

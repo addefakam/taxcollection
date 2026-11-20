@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (tp.woredaId !== user.assignedWoredaId) {
       return NextResponse.json(
         {
-          error: `You can only create assignments for taxpayers in your assigned woreda (Woreda ${user.assignedWoredaCode || '?'}). This taxpayer is in ${tp.woreda?.name || 'an unassigned woreda'}.`,
+          error: `You can only create assignments for taxpayers in your assigned woreda (Woreda: ${user.assignedWoredaName || '?'}). This taxpayer is in ${tp.woreda?.name || 'an unassigned woreda'}.`,
         },
         { status: 403 }
       )

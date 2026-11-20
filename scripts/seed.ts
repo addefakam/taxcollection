@@ -5,21 +5,21 @@ import { hashPassword } from '../src/lib/password'
 async function main() {
   console.log('1. Seeding Woredas...')
   const woredas = [
-    { code: '01', name: 'Woreda 01 - Bishoftu Town Center', region: 'Oromia' },
-    { code: '02', name: 'Woreda 02 - Lake Side', region: 'Oromia' },
-    { code: '03', name: 'Woreda 03 - Africa Avenue', region: 'Oromia' },
-    { code: '04', name: 'Woreda 04 - Industrial Zone', region: 'Oromia' },
-    { code: '05', name: 'Woreda 05 - Asella Road', region: 'Oromia' },
+    { name: 'Bishoftu Town Center', region: 'Oromia' },
+    { name: 'Lake Side', region: 'Oromia' },
+    { name: 'Africa Avenue', region: 'Oromia' },
+    { name: 'Industrial Zone', region: 'Oromia' },
+    { name: 'Asella Road', region: 'Oromia' },
   ]
   const woredaRecords: Record<string, { id: string }> = {}
   for (const w of woredas) {
     const rec = await db.woreda.upsert({
-      where: { code: w.code },
+      where: { name: w.name },
       update: {},
       create: w,
     })
-    woredaRecords[w.code] = rec
-    console.log(`  Woreda ${w.code}: ${w.name}`)
+    woredaRecords[w.name] = rec
+    console.log(`  Woreda: ${w.name}`)
   }
 
   console.log('\n2. Seeding Staff (with passwords)...')
@@ -32,16 +32,16 @@ async function main() {
     { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas' },
     { fullName: 'Ato Habtamu Girma', email: 'revenue@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_REVENUE_OFFICER', password: 'Revenue@habtamu' },
     // Data Collectors (Galmeewwan) — one per woreda
-    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', assignedWoredaCode: '01', password: 'Woreda01@lemma' },
-    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', assignedWoredaCode: '02', password: 'Woreda02@chaltu' },
+    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', assignedWoredaName: 'Bishoftu Town Center', password: 'Woreda01@lemma' },
+    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', assignedWoredaName: 'Lake Side', password: 'Woreda02@chaltu' },
   ]
   const staffRecords: Record<string, { id: string; fullName: string }> = {}
   for (const s of staff) {
     const passwordHash = await hashPassword(s.password)
     // Resolve assigned woreda ID for DATA_COLLECTOR accounts
-    const assignedWoredaId = s.assignedWoredaCode ? woredaRecords[s.assignedWoredaCode]?.id : undefined
+    const assignedWoredaId = s.assignedWoredaName ? woredaRecords[s.assignedWoredaName]?.id : undefined
     if (s.role === 'DATA_COLLECTOR' && !assignedWoredaId) {
-      console.log(`  WARN: cannot resolve woreda ${s.assignedWoredaCode} for ${s.email}`)
+      console.log(`  WARN: cannot resolve woreda ${s.assignedWoredaName} for ${s.email}`)
     }
     const rec = await db.staff.upsert({
       where: { email: s.email },
@@ -58,7 +58,7 @@ async function main() {
     staffRecords[s.email] = rec
     console.log(
       `  Staff: ${s.fullName} (${s.role}) — password: ${s.password}` +
-      (s.assignedWoredaCode ? ` [Woreda ${s.assignedWoredaCode}]` : '')
+      (s.assignedWoredaName ? ` [Woreda: ${s.assignedWoredaName}]` : '')
     )
   }
   console.log(`\n  >>> LEADER LOGIN: leader@bishoftu.gov.et / ${leaderPassword} <<<`)
@@ -76,7 +76,7 @@ async function main() {
       phone: '+251911234567',
       email: 'admasu.trading@gmail.com',
       address: 'Bole Road, Near Bishoftu Tower',
-      woredaCode: '01',
+      woredaName: '01',
       kebele: '03',
       tradeLicenseNo: 'BL-001-2018',
       contactPerson: 'Ato Admasu G.',
@@ -87,7 +87,7 @@ async function main() {
       category: 'BUSINESS',
       phone: '+251911345678',
       address: 'Lake Side, Bishoftu',
-      woredaCode: '02',
+      woredaName: '02',
       kebele: '05',
       tradeLicenseNo: 'BL-002-2019',
       contactPerson: 'W/ro Chelchel A.',
@@ -98,7 +98,7 @@ async function main() {
       category: 'INDIVIDUAL_INCOME',
       phone: '+251911456789',
       address: 'Kebe 08, Bishoftu',
-      woredaCode: '03',
+      woredaName: '03',
       kebele: '08',
     },
     {
@@ -108,7 +108,7 @@ async function main() {
       phone: '+251911567890',
       email: 'greenland.hotel@gmail.com',
       address: 'Main Road, Bishoftu',
-      woredaCode: '01',
+      woredaName: '01',
       kebele: '01',
       tradeLicenseNo: 'BL-004-2015',
       contactPerson: 'Ato Getachew B.',
@@ -119,7 +119,7 @@ async function main() {
       category: 'PROPERTY',
       phone: '+251911678901',
       address: 'Africa Avenue, Bishoftu',
-      woredaCode: '02',
+      woredaName: '02',
       kebele: '02',
     },
     {
@@ -129,7 +129,7 @@ async function main() {
       phone: '+251911789012',
       email: 'info@bishoftuconstruction.com',
       address: 'Industrial Zone, Bishoftu',
-      woredaCode: '04',
+      woredaName: '04',
       kebele: '11',
       tradeLicenseNo: 'BL-006-2010',
       contactPerson: 'Ato Solomon T.',
@@ -140,7 +140,7 @@ async function main() {
       category: 'VEHICLE',
       phone: '+251911890123',
       address: 'Wello Sefer, Bishoftu',
-      woredaCode: '02',
+      woredaName: '02',
       kebele: '07',
     },
     {
@@ -150,7 +150,7 @@ async function main() {
       phone: '+251911901234',
       email: 'lakeview.re@gmail.com',
       address: 'Lake Front, Bishoftu',
-      woredaCode: '03',
+      woredaName: '03',
       kebele: '04',
       tradeLicenseNo: 'BL-008-2020',
       contactPerson: 'W/ro Marta G.',
@@ -161,7 +161,7 @@ async function main() {
       category: 'INDIVIDUAL_INCOME',
       phone: '+251912012345',
       address: 'Asella Road, Bishoftu',
-      woredaCode: '05',
+      woredaName: '05',
       kebele: '06',
     },
     {
@@ -171,7 +171,7 @@ async function main() {
       phone: '+251912123456',
       email: 'dashen.bishoftu@dashenbank.com',
       address: 'Central Market, Bishoftu',
-      woredaCode: '02',
+      woredaName: '02',
       kebele: '01',
       tradeLicenseNo: 'BL-010-2012',
       contactPerson: 'Ato Henok D.',
@@ -179,13 +179,13 @@ async function main() {
   ]
 
   for (const tp of sampleTaxPayers) {
-    const { woredaCode, ...rest } = tp
+    const { woredaName, ...rest } = tp
     await db.taxPayer.upsert({
       where: { tin: rest.tin },
       update: {},
       create: {
         ...rest,
-        woredaId: woredaCode ? woredaRecords[woredaCode]?.id : null,
+        woredaId: woredaName ? woredaRecords[woredaName]?.id : null,
       },
     })
     console.log(`  TaxPayer: ${rest.tin} - ${rest.fullName}`)
@@ -226,18 +226,18 @@ async function main() {
   // Per-woreda targets (sample: 3 woredas × 3 categories)
   const woredaTargets = [
     // Woreda 01 - Town Center (largest business district)
-    { woredaCode: '01', category: 'BUSINESS', expectedAmount: 2_500_000 },
-    { woredaCode: '01', category: 'VAT', expectedAmount: 3_800_000 },
-    { woredaCode: '01', category: 'PROPERTY', expectedAmount: 850_000 },
+    { woredaName: '01', category: 'BUSINESS', expectedAmount: 2_500_000 },
+    { woredaName: '01', category: 'VAT', expectedAmount: 3_800_000 },
+    { woredaName: '01', category: 'PROPERTY', expectedAmount: 850_000 },
     // Woreda 02 - Lake Side (mid-tier)
-    { woredaCode: '02', category: 'BUSINESS', expectedAmount: 1_400_000 },
-    { woredaCode: '02', category: 'PROPERTY', expectedAmount: 720_000 },
+    { woredaName: '02', category: 'BUSINESS', expectedAmount: 1_400_000 },
+    { woredaName: '02', category: 'PROPERTY', expectedAmount: 720_000 },
     // Woreda 04 - Industrial Zone (heavy)
-    { woredaCode: '04', category: 'BUSINESS', expectedAmount: 1_900_000 },
-    { woredaCode: '04', category: 'VAT', expectedAmount: 2_600_000 },
+    { woredaName: '04', category: 'BUSINESS', expectedAmount: 1_900_000 },
+    { woredaName: '04', category: 'VAT', expectedAmount: 2_600_000 },
   ]
   for (const t of woredaTargets) {
-    const woredaRec = woredaRecords[t.woredaCode]
+    const woredaRec = woredaRecords[t.woredaName]
     if (!woredaRec) continue
     const existing = await db.yearlyTaxTarget.findFirst({
       where: { fiscalYear, woredaId: woredaRec.id, category: t.category },
@@ -258,7 +258,7 @@ async function main() {
         },
       })
     }
-    console.log(`  Woreda ${t.woredaCode} target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()}`)
+    console.log(`  Woreda: ${t.woredaName} target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()}`)
   }
 
   const totalTargets = cityWideTargets.length + woredaTargets.length

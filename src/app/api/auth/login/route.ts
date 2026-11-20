@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     role: staff.role as 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR',
     assignedWoredaId: staff.assignedWoredaId,
     assignedWoredaName: staff.assignedWoreda?.name || null,
-    assignedWoredaCode: staff.assignedWoreda?.code || null,
+    assignedWoredaName: staff.assignedWoreda?.code || null,
   })
 
   return NextResponse.json({
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       role: staff.role,
       assignedWoredaId: staff.assignedWoredaId,
       assignedWoredaName: staff.assignedWoreda?.name || null,
-      assignedWoredaCode: staff.assignedWoreda?.code || null,
+      assignedWoredaName: staff.assignedWoreda?.code || null,
     },
   })
 }

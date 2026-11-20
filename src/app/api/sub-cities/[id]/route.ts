@@ -15,11 +15,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { id } = await params
   const body = await req.json()
-  const { code, name, region, active } = body
+  const { name, region, active } = body
 
   const sc = await db.subCity.update({
     where: { id },
-    data: { code, name, region, active },
+    data: { name, region, active },
   })
   return NextResponse.json(sc)
 }

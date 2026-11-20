@@ -25,35 +25,35 @@ export async function setupDatabase(): Promise<SetupResult> {
 
   // --- 1. Seed woredas (upsert — safe to re-run) ---
   const woredas = [
-    { code: '01', name: 'Woreda 01 - Bishoftu Town Center', region: 'Oromia' },
-    { code: '02', name: 'Woreda 02 - Lake Side', region: 'Oromia' },
-    { code: '03', name: 'Woreda 03 - Africa Avenue', region: 'Oromia' },
-    { code: '04', name: 'Woreda 04 - Industrial Zone', region: 'Oromia' },
-    { code: '05', name: 'Woreda 05 - Asella Road', region: 'Oromia' },
+    { name: 'Bishoftu Town Center', region: 'Oromia' },
+    { name: 'Lake Side', region: 'Oromia' },
+    { name: 'Africa Avenue', region: 'Oromia' },
+    { name: 'Industrial Zone', region: 'Oromia' },
+    { name: 'Asella Road', region: 'Oromia' },
   ]
   const woredaRecords: Record<string, { id: string }> = {}
   for (const w of woredas) {
     const rec = await db.woreda.upsert({
-      where: { code: w.code },
+      where: { name: w.name },
       update: {},
       create: w,
     })
-    woredaRecords[w.code] = rec
+    woredaRecords[w.name] = rec
   }
 
   // --- 2. Seed staff (all accounts shown on the login page demo panel) ---
   const leaderPassword = 'Bishoftu@2026' // default leader password — change after first login
   const adminPassword = 'Admin@2026' // default system admin password — change after first login!
   const staff = [
-    { fullName: 'Ato Tesfaye Lemma', email: 'leader@bishoftu.gov.et', phone: '+251911100001', role: 'LEADER', password: leaderPassword, assignedWoredaCode: null },
-    { fullName: 'Ato Dereje Bekele', email: 'admin@bishoftu.gov.et', phone: '+251911100000', role: 'SYSTEM_ADMIN', password: adminPassword, assignedWoredaCode: null },
-    { fullName: 'Ato Habtamu Girma', email: 'revenue@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_REVENUE_OFFICER', password: 'Revenue@habtamu', assignedWoredaCode: null },
-    { fullName: 'W/ro Almaz Bekele', email: 'almaz.bekele@bishoftu.gov.et', phone: '+251911100002', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@almaz', assignedWoredaCode: null },
-    { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit', assignedWoredaCode: null },
-    { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara', assignedWoredaCode: null },
-    { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas', assignedWoredaCode: null },
-    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', password: 'Woreda01@lemma', assignedWoredaCode: '01' },
-    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', password: 'Woreda02@chaltu', assignedWoredaCode: '02' },
+    { fullName: 'Ato Tesfaye Lemma', email: 'leader@bishoftu.gov.et', phone: '+251911100001', role: 'LEADER', password: leaderPassword, assignedWoredaName: null },
+    { fullName: 'Ato Dereje Bekele', email: 'admin@bishoftu.gov.et', phone: '+251911100000', role: 'SYSTEM_ADMIN', password: adminPassword, assignedWoredaName: null },
+    { fullName: 'Ato Habtamu Girma', email: 'revenue@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_REVENUE_OFFICER', password: 'Revenue@habtamu', assignedWoredaName: null },
+    { fullName: 'W/ro Almaz Bekele', email: 'almaz.bekele@bishoftu.gov.et', phone: '+251911100002', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@almaz', assignedWoredaName: null },
+    { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit', assignedWoredaName: null },
+    { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara', assignedWoredaName: null },
+    { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas', assignedWoredaName: null },
+    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', password: 'Woreda01@lemma', assignedWoredaName: 'Bishoftu Town Center' },
+    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', password: 'Woreda02@chaltu', assignedWoredaName: 'Lake Side' },
   ]
   let staffCount = 0
   for (const s of staff) {
@@ -67,7 +67,7 @@ export async function setupDatabase(): Promise<SetupResult> {
           phone: s.phone,
           role: s.role,
           passwordHash,
-          assignedWoredaId: s.assignedWoredaCode ? woredaRecords[s.assignedWoredaCode]?.id : null,
+          assignedWoredaId: s.assignedWoredaName ? woredaRecords[s.assignedWoredaName]?.id : null,
         },
       })
       staffCount++

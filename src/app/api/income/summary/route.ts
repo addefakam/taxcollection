@@ -235,7 +235,7 @@ export async function GET(req: NextRequest) {
           : 0
     return {
       woredaId: w.id,
-      woredaCode: w.code,
+      woredaName: w.code,
       woredaName: w.name,
       expected,
       collected,
@@ -336,7 +336,7 @@ export async function GET(req: NextRequest) {
     }
     return {
       woredaId: w.id,
-      woredaCode: w.code,
+      woredaName: w.code,
       woredaName: w.name,
       targets: cats,
     }

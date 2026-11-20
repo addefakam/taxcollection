@@ -125,12 +125,12 @@ export function Header({ user, onLogout }: HeaderProps) {
                 <Badge variant="secondary" className="text-[10px] hidden md:inline">
                   {ROLE_LABEL[user.role]}
                 </Badge>
-                {user.role === 'DATA_COLLECTOR' && user.assignedWoredaCode && (
+                {user.role === 'DATA_COLLECTOR' && user.assignedWoredaName && (
                   <Badge
                     variant="outline"
                     className="text-[10px] hidden md:inline bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 border-rose-200 dark:border-rose-800"
                   >
-                    Woreda {user.assignedWoredaCode}
+                    Woreda: {user.assignedWoredaName}
                   </Badge>
                 )}
                 <ChevronDown className="h-3 w-3" />

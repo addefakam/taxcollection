@@ -95,7 +95,7 @@ interface TrendPoint {
 
 interface WoredaSummary {
   woredaId: string
-  woredaCode: string
+  woredaName: string
   woredaName: string
   expected: number
   collected: number
@@ -136,7 +136,7 @@ interface RecentPayment {
 
 interface WoredaCategoryTarget {
   woredaId: string
-  woredaCode: string
+  woredaName: string
   woredaName: string
   targets: Record<string, number>
 }
@@ -902,7 +902,7 @@ export function CityIncome() {
               >
                 <BarChart
                   data={byWoreda.map((w) => ({
-                    name: `W${w.woredaCode}`,
+                    name: `${w.woredaName}`,
                     Expected: w.expected,
                     Collected: w.collected,
                   }))}
@@ -939,7 +939,7 @@ export function CityIncome() {
                     {byWoreda.map((w) => (
                       <tr key={w.woredaId} className="hover:bg-muted/40">
                         <td className="px-3 py-2.5">
-                          <p className="font-medium">Woreda {w.woredaCode}</p>
+                          <p className="font-medium">Woreda: {w.woredaName}</p>
                           <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">
                             {w.woredaName}
                           </p>
@@ -1010,7 +1010,7 @@ export function CityIncome() {
                       <p className="font-medium text-sm truncate">{t.fullName}</p>
                       <p className="text-[11px] text-muted-foreground font-mono">
                         {t.tin} · {t.categoryLabel}
-                        {t.woreda && <> · W{t.woreda.code}</>}
+                        {t.woreda && <> · {t.woreda.name}</>}
                       </p>
                     </div>
                     <div className="text-right">
@@ -1114,7 +1114,7 @@ export function CityIncome() {
                   {summary.woredaCategoryTargets.map((row) => (
                     <tr key={row.woredaId} className="hover:bg-muted/40">
                       <td className="px-3 py-2.5 sticky left-0 bg-background">
-                        <p className="font-medium">Woreda {row.woredaCode}</p>
+                        <p className="font-medium">Woreda: {row.woredaName}</p>
                         <p className="text-[10px] text-muted-foreground truncate max-w-[160px]">
                           {row.woredaName}
                         </p>
@@ -1231,7 +1231,7 @@ export function CityIncome() {
                 <SelectContent>
                   {summary?.byWoreda.map((w) => (
                     <SelectItem key={w.woredaId} value={w.woredaId}>
-                      Woreda {w.woredaCode} — {w.woredaName}
+                      Woreda: {w.woredaName} — {w.woredaName}
                     </SelectItem>
                   ))}
                 </SelectContent>

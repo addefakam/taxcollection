@@ -28,7 +28,6 @@ import { Target, Plus, Pencil, Trash2, Save, Building2, AlertCircle } from 'luci
 
 interface Woreda {
   id: string
-  code: string
   name: string
 }
 
@@ -144,7 +143,7 @@ export function TaxTargets() {
       toast({
         title: editing ? 'Target updated' : 'Target created',
         description: `${categoryLabel(form.category)} — ${fmtETB(Number(form.expectedAmount))}${
-          form.woredaId !== 'NONE' ? ` (Woreda ${woredas.find((w) => w.id === form.woredaId)?.code})` : ' (city-wide)'
+          form.woredaId !== 'NONE' ? ` (Woreda: ${woredas.find((w) => w.id === form.woredaId)?.code})` : ' (city-wide)'
         }`,
       })
       setOpen(false)
@@ -394,7 +393,7 @@ export function TaxTargets() {
                   <SelectItem value="NONE">City-wide (all woredas)</SelectItem>
                   {woredas.map((w) => (
                     <SelectItem key={w.id} value={w.id}>
-                      Woreda {w.code} — {w.name}
+                      Woreda: {w.code} — {w.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
