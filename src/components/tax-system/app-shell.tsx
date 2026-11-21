@@ -11,6 +11,7 @@ import { StaffManagement } from './staff-management'
 import { SubCitiesManagement } from './sub-cities-management'
 import { TeamsManagement } from './teams-management'
 import { PlansManagement } from './plans-management'
+import { ReportsManagement } from './reports-management'
 import { RevenueDashboard } from './revenue-dashboard'
 import { TaxTargets } from './tax-targets'
 import { PermissionsManagement } from './permissions-management'
@@ -28,6 +29,7 @@ import {
   Shield,
   Layers,
   CalendarDays,
+  FileText,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -49,6 +51,7 @@ type Tab =
   | 'woredas'
   | 'teams'
   | 'plans'
+  | 'reports'
   | 'permissions'
 
 const TABS: Array<{
@@ -96,6 +99,12 @@ const TABS: Array<{
     label: 'Plans',
     icon: CalendarDays,
     visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN', 'WOREDA_ADMIN', 'TEAM_LEAD'],
+  },
+  {
+    key: 'reports',
+    label: 'Reports',
+    icon: FileText,
+    visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN', 'WOREDA_ADMIN', 'CITY_REVENUE_OFFICER'],
   },
   {
     key: 'permissions',
@@ -163,6 +172,7 @@ export function AppShell({ user }: { user: SessionUser }) {
           {safeTab === 'woredas' && selectedTab && <SubCitiesManagement />}
           {safeTab === 'teams' && selectedTab && <TeamsManagement />}
           {safeTab === 'plans' && selectedTab && <PlansManagement />}
+          {safeTab === 'reports' && selectedTab && <ReportsManagement />}
           {safeTab === 'permissions' && selectedTab && <PermissionsManagement />}
         </main>
 

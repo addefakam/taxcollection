@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, requireRole } from '@/lib/auth'
+import { getTaxPayerScopeFilter } from '@/lib/scoping'
 
 // GET /api/taxpayers?q=...&category=...&active=...&woredaId=...&blocked=...
-// Any logged-in staff can view. DATA_COLLECTOR only sees their assigned woreda.
+// Hierarchical scoping: users only see taxpayers within their admin unit.
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -30,15 +31,19 @@ export async function GET(req: NextRequest) {
   if (blocked === 'true') where.blocked = true
   if (blocked === 'false') where.blocked = false
 
-  // Enforce woreda-scoped data for DATA_COLLECTOR
-  if (user.role === 'DATA_COLLECTOR') {
-    if (!user.assignedWoredaId) {
-      return NextResponse.json(
-        { error: 'Your account is not assigned to any woreda. Contact the Leader.' },
-        { status: 403 }
-      )
-    }
-    where.woredaId = user.assignedWoredaId
+  // Apply hierarchical scope filter
+  const scopeFilter = await getTaxPayerScopeFilter()
+  if (scopeFilter === null) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+  // Merge scope filter with query filters
+  // If scope has woredaId, it overrides any user-specified woredaId (security)
+  if ('woredaId' in scopeFilter) {
+    where.woredaId = scopeFilter.woredaId
+  } else if ('woreda' in scopeFilter) {
+    where.woreda = scopeFilter.woreda
+  } else if ('id' in scopeFilter && scopeFilter.id === '__none__') {
+    where.id = '__none__' // see nothing
   } else if (woredaId) {
     where.woredaId = woredaId
   }

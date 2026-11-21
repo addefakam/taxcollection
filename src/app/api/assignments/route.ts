@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, requireRole } from '@/lib/auth'
+import { getAssignmentScopeFilter } from '@/lib/scoping'
 
 // GET /api/assignments?status=...&q=...&taxPayerId=...&disputed=...
-// Any logged-in staff can view. DATA_COLLECTOR only sees assignments in their assigned woreda.
+// Hierarchical scoping: users only see assignments within their admin unit.
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -31,15 +32,15 @@ export async function GET(req: NextRequest) {
     ]
   }
 
-  // Enforce woreda-scoped data for DATA_COLLECTOR
-  if (user.role === 'DATA_COLLECTOR') {
-    if (!user.assignedWoredaId) {
-      return NextResponse.json(
-        { error: 'Your account is not assigned to any woreda. Contact the Leader.' },
-        { status: 403 }
-      )
-    }
-    where.taxPayer = { woredaId: user.assignedWoredaId }
+  // Apply hierarchical scope filter
+  const scopeFilter = await getAssignmentScopeFilter()
+  if (scopeFilter === null) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+  if ('taxPayer' in scopeFilter) {
+    where.taxPayer = scopeFilter.taxPayer
+  } else if ('id' in scopeFilter && scopeFilter.id === '__none__') {
+    where.id = '__none__'
   }
 
   const assignments = await db.taxAssignment.findMany({

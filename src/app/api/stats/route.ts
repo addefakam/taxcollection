@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { getTaxPayerScopeFilter, getVisibleWoredaIds } from '@/lib/scoping'
 
-// GET /api/stats - leader dashboard summary  (any logged-in staff)
-// DATA_COLLECTOR: stats are scoped to their assigned woreda
+// GET /api/stats - dashboard summary
+// Hierarchical scoping: users only see stats for their admin unit.
 export async function GET() {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  // Common where clause: filter by woreda for DATA_COLLECTOR
-  let woredaFilter: Record<string, unknown> = {}
-  if (user.role === 'DATA_COLLECTOR') {
-    if (!user.assignedWoredaId) {
-      return NextResponse.json(
-        { error: 'Your account is not assigned to any woreda. Contact the Leader.' },
-        { status: 403 }
-      )
-    }
-    woredaFilter = { woredaId: user.assignedWoredaId }
-  }
+  // Get hierarchical scope filters
+  const tpScope = await getTaxPayerScopeFilter()
+  if (tpScope === null) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  // For taxpayer queries
+  const woredaFilter = tpScope
+
+  // For assignment queries (need to filter via taxPayer relation)
+  const assignmentFilter = 'taxPayer' in tpScope ? { taxPayer: tpScope.taxPayer } :
+    'id' in tpScope && tpScope.id === '__none__' ? { id: '__none__' } : {}
 
   const [
     totalTaxPayers,
