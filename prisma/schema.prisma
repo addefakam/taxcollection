@@ -27,6 +27,7 @@ model SubCity {
   woredas       Woreda[]
   assignedStaff Staff[] @relation("StaffAssignedSubCity")
   teams         Team[]
+  plans         Plan[]
 }
 
 // Woreda (sub-district) — belongs to a Sub-City.
@@ -44,6 +45,7 @@ model Woreda {
   targets         YearlyTaxTarget[]
   assignedStaff   Staff[] @relation("StaffAssignedWoreda")
   teams           Team[]
+  plans           Plan[]
 }
 
 // Finance office staff members
@@ -81,6 +83,8 @@ model Staff {
   history                   AssignmentHistory[]
   taxTargetsSet             YearlyTaxTarget[]
   ledTeams                  Team[] @relation("TeamLead")
+  plansResponsible          Plan[] @relation("PlanResponsible")
+  plansCreated              Plan[] @relation("PlanCreator")
 }
 
 // Team — organizational unit within a woreda (or sub-city)
@@ -99,6 +103,44 @@ model Team {
   updatedAt   DateTime @updatedAt
 
   members     Staff[] @relation("TeamMembers")
+  plans       Plan[]
+}
+
+// Collection Plan — supports daily/weekly/monthly/quarterly/annual planning
+// at every administrative level (city, sub-city, woreda, team).
+model Plan {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  periodType      String   // DAILY, WEEKLY, MONTHLY, QUARTERLY, ANNUAL
+  startDate       DateTime
+  endDate         DateTime
+  // Administrative unit (at least one should be set)
+  subCityId       String?
+  subCity         SubCity? @relation(fields: [subCityId], references: [id])
+  woredaId        String?
+  woreda          Woreda?  @relation(fields: [woredaId], references: [id])
+  teamId          String?
+  team            Team?    @relation(fields: [teamId], references: [id])
+  // Responsible person
+  responsibleStaffId String?
+  responsible     Staff?   @relation("PlanResponsible", fields: [responsibleStaffId], references: [id])
+  // Plan details
+  activity        String   // planned activity description
+  targetAmount    Float?   // ETB target (nullable for non-financial plans)
+  targetQuantity  Int?     // e.g. number of taxpayers to visit
+  expectedOutcome String?
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  status          String   @default("DRAFT") // DRAFT, ACTIVE, COMPLETED, OVERDUE, CANCELLED
+  progress        Int      @default(0) // 0-100 percentage
+  actualAmount    Float?   // ETB actually collected/achieved
+  actualQuantity  Int?     // actual count achieved
+  remarks         String?
+  challenges      String?
+  createdByStaffId String?
+  createdBy       Staff?   @relation("PlanCreator", fields: [createdByStaffId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // Dynamic permission matrix — System Admin can toggle these per role.

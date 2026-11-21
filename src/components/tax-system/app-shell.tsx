@@ -10,6 +10,7 @@ import { ProcessTracker } from './process-tracker'
 import { StaffManagement } from './staff-management'
 import { SubCitiesManagement } from './sub-cities-management'
 import { TeamsManagement } from './teams-management'
+import { PlansManagement } from './plans-management'
 import { RevenueDashboard } from './revenue-dashboard'
 import { TaxTargets } from './tax-targets'
 import { PermissionsManagement } from './permissions-management'
@@ -26,6 +27,7 @@ import {
   Target,
   Shield,
   Layers,
+  CalendarDays,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -46,6 +48,7 @@ type Tab =
   | 'staff'
   | 'woredas'
   | 'teams'
+  | 'plans'
   | 'permissions'
 
 const TABS: Array<{
@@ -87,6 +90,12 @@ const TABS: Array<{
     label: 'Teams',
     icon: Users,
     visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN', 'WOREDA_ADMIN'],
+  },
+  {
+    key: 'plans',
+    label: 'Plans',
+    icon: CalendarDays,
+    visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN', 'WOREDA_ADMIN', 'TEAM_LEAD'],
   },
   {
     key: 'permissions',
@@ -153,6 +162,7 @@ export function AppShell({ user }: { user: SessionUser }) {
           )}
           {safeTab === 'woredas' && selectedTab && <SubCitiesManagement />}
           {safeTab === 'teams' && selectedTab && <TeamsManagement />}
+          {safeTab === 'plans' && selectedTab && <PlansManagement />}
           {safeTab === 'permissions' && selectedTab && <PermissionsManagement />}
         </main>
 
