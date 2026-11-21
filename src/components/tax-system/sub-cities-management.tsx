@@ -189,9 +189,14 @@ export function SubCitiesManagement() {
             Manage the geographic hierarchy: City → Sub-City → Woreda. Each name is unique.
           </p>
         </div>
-        <Button onClick={openScCreate} className="gap-2">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => openWCreate()} className="gap-2">
+            <MapPin className="h-4 w-4" /> Add Woreda
+          </Button>
+          <Button onClick={openScCreate} className="gap-2">
             <Plus className="h-4 w-4" /> Add Sub-City
           </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -223,9 +228,6 @@ export function SubCitiesManagement() {
                       </div>
                     </div>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant="outline" onClick={() => openWCreate(sc.id)} className="gap-1.5">
-                        <Plus className="h-3 w-3" /> Add Woreda
-                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => openScEdit(sc)}><Pencil className="h-3.5 w-3.5" /></Button>
                       {sc.active && <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deactivateSubCity(sc)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                     </div>
