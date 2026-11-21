@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { hashPassword, verifyPassword } from '@/lib/password'
+import { verifyPassword } from '@/lib/password'
 import { createSession } from '@/lib/auth'
 
 // POST /api/auth/login
@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
 
   const staff = await db.staff.findUnique({
     where: { email: email.toLowerCase().trim() },
-    include: { assignedWoreda: true },
+    include: {
+      assignedWoreda: { select: { id: true, name: true } },
+      assignedSubCity: { select: { id: true, name: true } },
+      team: { select: { id: true, name: true } },
+    },
   })
 
   if (!staff || !staff.active) {
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          'Your account has no password set. Ask the Leader to reset your password.',
+          'Your account has no password set. Ask the admin to reset your password.',
       },
       { status: 403 }
     )
@@ -46,26 +50,21 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Validate that DATA_COLLECTOR staff have an assigned woreda
-  if (staff.role === 'DATA_COLLECTOR' && !staff.assignedWoredaId) {
-    return NextResponse.json(
-      {
-        error:
-          'Your Data Collector account is not assigned to any woreda. Ask the Leader to assign you to a woreda.',
-      },
-      { status: 403 }
-    )
-  }
+  // Note: we no longer block login for users without a woreda/sub-city assignment.
+  // They can log in but will see no scoped data until an admin assigns them.
 
-  // Create session with woreda info for DATA_COLLECTOR
+  // Create session with full hierarchical scoping info
   await createSession({
     id: staff.id,
     fullName: staff.fullName,
     email: staff.email,
-    role: staff.role as 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR',
+    role: staff.role as any,
+    assignedSubCityId: staff.assignedSubCityId,
+    assignedSubCityName: staff.assignedSubCity?.name || null,
     assignedWoredaId: staff.assignedWoredaId,
     assignedWoredaName: staff.assignedWoreda?.name || null,
-    assignedWoredaName: staff.assignedWoreda?.code || null,
+    teamId: staff.teamId,
+    teamName: staff.team?.name || null,
   })
 
   return NextResponse.json({
@@ -75,9 +74,12 @@ export async function POST(req: NextRequest) {
       fullName: staff.fullName,
       email: staff.email,
       role: staff.role,
+      assignedSubCityId: staff.assignedSubCityId,
+      assignedSubCityName: staff.assignedSubCity?.name || null,
       assignedWoredaId: staff.assignedWoredaId,
       assignedWoredaName: staff.assignedWoreda?.name || null,
-      assignedWoredaName: staff.assignedWoreda?.code || null,
+      teamId: staff.teamId,
+      teamName: staff.team?.name || null,
     },
   })
 }

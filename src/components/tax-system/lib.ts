@@ -1,31 +1,62 @@
 // Shared types, constants, and helpers for the Bishoftu Tax Collection System
 
-export type Role = 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR' | 'SYSTEM_ADMIN'
+export type Role =
+  | 'SYSTEM_ADMIN'
+  | 'CITY_ADMIN'
+  | 'SUBCITY_ADMIN'
+  | 'WOREDA_ADMIN'
+  | 'LEADER'
+  | 'TEAM_1_ASSIGNMENT'
+  | 'TEAM_2_FINANCE'
+  | 'CITY_REVENUE_OFFICER'
+  | 'DATA_COLLECTOR'
+  | 'TEAM_LEAD'
+  | 'TEAM_MEMBER'
 
 export const ROLES: Record<Role, { label: string; description: string }> = {
+  SYSTEM_ADMIN: {
+    label: 'System Admin',
+    description: 'Controls system configuration and permissions',
+  },
+  CITY_ADMIN: {
+    label: 'City Admin',
+    description: 'Manages the entire city — all sub-cities, woredas, teams, and users',
+  },
+  SUBCITY_ADMIN: {
+    label: 'Sub-City Admin',
+    description: 'Manages one sub-city — its woredas, teams, and staff',
+  },
+  WOREDA_ADMIN: {
+    label: 'Woreda Admin',
+    description: 'Manages one woreda — taxpayers, teams, and tax collection',
+  },
   LEADER: {
     label: 'Finance Leader',
-    description: 'Full visibility of the entire tax collection process',
+    description: 'Full visibility of the tax collection process',
   },
   TEAM_1_ASSIGNMENT: {
     label: 'Team 1 — Assignment',
-    description: 'Assigns tax payers who must pay, with the amount and tax type',
+    description: 'Assigns tax payers who must pay',
   },
   TEAM_2_FINANCE: {
     label: 'Team 2 — Finance Office',
     description: 'Receives bank receipts and issues government receipts',
   },
   CITY_REVENUE_OFFICER: {
-    label: 'City Revenue Officer — Income Follow-up',
-    description: 'Follows up overall city income by category, expected vs collected, daily/weekly/monthly/yearly trends',
+    label: 'City Revenue Officer',
+    description: 'Monitors city-wide revenue performance',
   },
   DATA_COLLECTOR: {
-    label: 'Galmeessituu (Data Collector)',
-    description: 'Field officer assigned to one woreda — can only see taxpayers and assignments in their assigned sub-city',
+    label: 'Data Collector',
+    description: 'Field officer assigned to one woreda',
   },
-  SYSTEM_ADMIN: {
-    label: 'System Admin',
-    description: 'Controls what every role can do — manages the permission matrix for the entire system',
+  TEAM_LEAD: {
+    label: 'Team Lead',
+    description: 'Leads a collection team within a woreda',
+  },
+  TEAM_MEMBER: {
+    label: 'Team Member',
+    description: 'Member of a collection team',
   },
 }
 

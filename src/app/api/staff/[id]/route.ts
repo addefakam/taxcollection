@@ -4,11 +4,10 @@ import { requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// PUT /api/staff/[id]  (Leader or System Admin)
-// Body: { fullName?, email?, phone?, role?, active? }
+// PUT /api/staff/[id]  (Leader, City Admin, SubCity Admin, or System Admin)
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER', 'SYSTEM_ADMIN')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN', 'WOREDA_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
@@ -18,17 +17,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const body = await req.json()
   const { fullName, email, phone, role, active } = body
 
-  if (role && !['LEADER', 'TEAM_1_ASSIGNMENT', 'TEAM_2_FINANCE', 'CITY_REVENUE_OFFICER', 'DATA_COLLECTOR', 'SYSTEM_ADMIN'].includes(role)) {
+  // Validate hierarchical scoping
+  if (role === 'SUBCITY_ADMIN' && body.assignedSubCityId === undefined) {
     return NextResponse.json(
-      { error: 'Invalid role. Must be LEADER, TEAM_1_ASSIGNMENT, TEAM_2_FINANCE, CITY_REVENUE_OFFICER, DATA_COLLECTOR, or SYSTEM_ADMIN' },
+      { error: 'Sub-City Admin must be assigned to a sub-city' },
       { status: 400 }
     )
   }
-
-  // Validate DATA_COLLECTOR must have assignedWoredaId
-  if (role === 'DATA_COLLECTOR' && body.assignedWoredaId === undefined) {
+  if (role === 'WOREDA_ADMIN' && body.assignedWoredaId === undefined) {
     return NextResponse.json(
-      { error: 'Data Collector (Galmeessituu) must be assigned to a woreda' },
+      { error: 'Woreda Admin must be assigned to a woreda' },
       { status: 400 }
     )
   }
@@ -41,11 +39,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
       ...(phone !== undefined && { phone }),
       ...(role !== undefined && { role }),
       ...(active !== undefined && { active }),
-      // Update assignedWoredaId: only DATA_COLLECTOR keeps it set; other roles get null
-      ...(role === 'DATA_COLLECTOR' && body.assignedWoredaId !== undefined && {
-        assignedWoredaId: body.assignedWoredaId || null,
-      }),
-      ...(role && role !== 'DATA_COLLECTOR' && { assignedWoredaId: null }),
+      ...(body.assignedSubCityId !== undefined && { assignedSubCityId: body.assignedSubCityId || null }),
+      ...(body.assignedWoredaId !== undefined && { assignedWoredaId: body.assignedWoredaId || null }),
+      ...(body.teamId !== undefined && { teamId: body.teamId || null }),
     },
     select: {
       id: true,
@@ -55,7 +51,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
       role: true,
       active: true,
       assignedWoredaId: true,
-      assignedWoreda: { select: { id: true, code: true, name: true } },
+      assignedWoreda: { select: { id: true, name: true } },
+      assignedSubCityId: true,
+      assignedSubCity: { select: { id: true, name: true } },
+      teamId: true,
+      team: { select: { id: true, name: true } },
     },
   })
   return NextResponse.json(s)
@@ -64,23 +64,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // DELETE /api/staff/[id]  (Leader or System Admin — soft delete)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER', 'SYSTEM_ADMIN')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
   }
 
   const { id } = await params
-  // Prevent self-deactivation
-  // (Leader shouldn't be able to lock themselves out)
-  const target = await db.staff.findUnique({ where: { id } })
-  if (!target) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  // soft delete
-  const s = await db.staff.update({
-    where: { id },
-    data: { active: false },
-    select: { id: true, fullName: true, active: true },
-  })
+  const s = await db.staff.update({ where: { id }, data: { active: false } })
   return NextResponse.json(s)
 }

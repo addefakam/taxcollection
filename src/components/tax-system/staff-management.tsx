@@ -58,21 +58,30 @@ interface StaffMember {
   fullName: string
   email: string
   phone?: string | null
-  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR' | 'SYSTEM_ADMIN'
+  role: 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR' | 'SYSTEM_ADMIN' | 'CITY_ADMIN' | 'SUBCITY_ADMIN' | 'WOREDA_ADMIN' | 'TEAM_LEAD' | 'TEAM_MEMBER'
   active: boolean
   assignedWoredaId?: string | null
   assignedWoreda?: { id: string; name: string } | null
+  assignedSubCityId?: string | null
+  assignedSubCity?: { id: string; name: string } | null
+  teamId?: string | null
+  team?: { id: string; name: string } | null
   lastLoginAt?: string | null
   createdAt: string
 }
 
 const ROLE_LABEL: Record<string, string> = {
   LEADER: 'Finance Leader',
-  TEAM_1_ASSIGNMENT: 'Team 1 — Assignment',
-  TEAM_2_FINANCE: 'Team 2 — Finance Office',
-  CITY_REVENUE_OFFICER: 'City Revenue Officer',
-  DATA_COLLECTOR: 'Galmeessituu (Data Collector)',
+  TEAM_1_ASSIGNMENT: 'Team 1',
+  TEAM_2_FINANCE: 'Team 2',
+  CITY_REVENUE_OFFICER: 'Revenue Officer',
+  DATA_COLLECTOR: 'Data Collector',
   SYSTEM_ADMIN: 'System Admin',
+  CITY_ADMIN: 'City Admin',
+  SUBCITY_ADMIN: 'Sub-City Admin',
+  WOREDA_ADMIN: 'Woreda Admin',
+  TEAM_LEAD: 'Team Lead',
+  TEAM_MEMBER: 'Team Member',
 }
 
 const ROLE_TONE: Record<string, string> = {
@@ -82,6 +91,11 @@ const ROLE_TONE: Record<string, string> = {
   CITY_REVENUE_OFFICER: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
   DATA_COLLECTOR: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
   SYSTEM_ADMIN: 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900',
+  CITY_ADMIN: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
+  SUBCITY_ADMIN: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+  WOREDA_ADMIN: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+  TEAM_LEAD: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+  TEAM_MEMBER: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300',
 }
 
 const emptyForm = {
@@ -91,6 +105,8 @@ const emptyForm = {
   role: 'TEAM_1_ASSIGNMENT' as StaffMember['role'],
   password: '',
   assignedWoredaId: 'NONE',
+  assignedSubCityId: 'NONE',
+  teamId: 'NONE',
 }
 
 export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
@@ -154,6 +170,8 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
       role: s.role,
       password: '',
       assignedWoredaId: s.assignedWoredaId || 'NONE',
+      assignedSubCityId: s.assignedSubCityId || 'NONE',
+      teamId: s.teamId || 'NONE',
     })
     setGeneratedPw(null)
     setCreateOpen(true)
@@ -185,10 +203,9 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
         phone: form.phone,
         role: form.role,
         password: form.password || undefined,
-        assignedWoredaId:
-          form.role === 'DATA_COLLECTOR' && form.assignedWoredaId !== 'NONE'
-            ? form.assignedWoredaId
-            : undefined,
+        assignedWoredaId: form.assignedWoredaId !== 'NONE' ? form.assignedWoredaId : undefined,
+        assignedSubCityId: form.assignedSubCityId !== 'NONE' ? form.assignedSubCityId : undefined,
+        teamId: form.teamId !== 'NONE' ? form.teamId : undefined,
       }
       const res = await fetch(
         editing ? `/api/staff/${editing.id}` : '/api/staff',
@@ -509,12 +526,17 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
+                      <SelectItem value="CITY_ADMIN">City Admin</SelectItem>
+                      <SelectItem value="SUBCITY_ADMIN">Sub-City Admin</SelectItem>
+                      <SelectItem value="WOREDA_ADMIN">Woreda Admin</SelectItem>
                       <SelectItem value="LEADER">Finance Leader</SelectItem>
                       <SelectItem value="TEAM_1_ASSIGNMENT">Team 1 — Assignment</SelectItem>
-                      <SelectItem value="TEAM_2_FINANCE">Team 2 — Finance Office</SelectItem>
+                      <SelectItem value="TEAM_2_FINANCE">Team 2 — Finance</SelectItem>
                       <SelectItem value="CITY_REVENUE_OFFICER">City Revenue Officer</SelectItem>
-                      <SelectItem value="DATA_COLLECTOR">Galmeessituu (Data Collector)</SelectItem>
-                      <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
+                      <SelectItem value="DATA_COLLECTOR">Data Collector</SelectItem>
+                      <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
+                      <SelectItem value="TEAM_MEMBER">Team Member</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

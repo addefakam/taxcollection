@@ -28,11 +28,16 @@ import { ROLES, Role } from './lib'
 
 const ROLE_LABEL: Record<Role, string> = {
   LEADER: 'Finance Leader',
-  TEAM_1_ASSIGNMENT: 'Team 1 — Assignment',
-  TEAM_2_FINANCE: 'Team 2 — Finance Office',
-  CITY_REVENUE_OFFICER: 'City Revenue Officer',
-  DATA_COLLECTOR: 'Galmeessituu',
+  TEAM_1_ASSIGNMENT: 'Team 1',
+  TEAM_2_FINANCE: 'Team 2',
+  CITY_REVENUE_OFFICER: 'Revenue Officer',
+  DATA_COLLECTOR: 'Data Collector',
   SYSTEM_ADMIN: 'System Admin',
+  CITY_ADMIN: 'City Admin',
+  SUBCITY_ADMIN: 'Sub-City Admin',
+  WOREDA_ADMIN: 'Woreda Admin',
+  TEAM_LEAD: 'Team Lead',
+  TEAM_MEMBER: 'Team Member',
 }
 
 interface HeaderProps {

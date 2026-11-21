@@ -9,17 +9,30 @@ const SESSION_SECRET =
 
 const secretKey = new TextEncoder().encode(SESSION_SECRET)
 
-export type Role = 'LEADER' | 'TEAM_1_ASSIGNMENT' | 'TEAM_2_FINANCE' | 'CITY_REVENUE_OFFICER' | 'DATA_COLLECTOR' | 'SYSTEM_ADMIN'
+export type Role =
+  | 'SYSTEM_ADMIN'
+  | 'CITY_ADMIN'
+  | 'SUBCITY_ADMIN'
+  | 'WOREDA_ADMIN'
+  | 'LEADER'
+  | 'TEAM_1_ASSIGNMENT'
+  | 'TEAM_2_FINANCE'
+  | 'CITY_REVENUE_OFFICER'
+  | 'DATA_COLLECTOR'
+  | 'TEAM_LEAD'
+  | 'TEAM_MEMBER'
 
 export interface SessionUser {
   id: string
   fullName: string
   email: string
   role: Role
-  // For DATA_COLLECTOR role: the woreda they are assigned to
+  assignedSubCityId?: string | null
+  assignedSubCityName?: string | null
   assignedWoredaId?: string | null
   assignedWoredaName?: string | null
-  assignedWoredaName?: string | null
+  teamId?: string | null
+  teamName?: string | null
 }
 
 export interface SessionPayload extends SessionUser {
@@ -77,9 +90,12 @@ export async function getSession(): Promise<SessionUser | null> {
       fullName: payload.fullName as string,
       email: payload.email as string,
       role: payload.role as Role,
+      assignedSubCityId: (payload.assignedSubCityId as string | undefined) || null,
+      assignedSubCityName: (payload.assignedSubCityName as string | undefined) || null,
       assignedWoredaId: (payload.assignedWoredaId as string | undefined) || null,
       assignedWoredaName: (payload.assignedWoredaName as string | undefined) || null,
-      assignedWoredaName: (payload.assignedWoredaName as string | undefined) || null,
+      teamId: (payload.teamId as string | undefined) || null,
+      teamName: (payload.teamName as string | undefined) || null,
     }
   } catch {
     return null
