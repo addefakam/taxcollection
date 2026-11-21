@@ -4,10 +4,10 @@ import { requireRole } from '@/lib/auth'
 
 type Params = { params: Promise<{ id: string }> }
 
-// PUT /api/tax-targets/[id]  (Leader only)
+// PUT /api/tax-targets/[id]
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER', 'SYSTEM_ADMIN')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN', 'WOREDA_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
@@ -24,15 +24,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const t = await db.yearlyTaxTarget.update({
     where: { id },
     data: { expectedAmount: Number(expectedAmount), notes: notes || null },
-    include: { woreda: true },
+    include: { woreda: { select: { name: true } }, subCity: { select: { name: true } }, team: { select: { name: true } } },
   })
   return NextResponse.json(t)
 }
 
-// DELETE /api/tax-targets/[id]  (Leader only)
+// DELETE /api/tax-targets/[id]
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    await requireRole('LEADER', 'SYSTEM_ADMIN')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

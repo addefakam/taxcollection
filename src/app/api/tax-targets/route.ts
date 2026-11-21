@@ -3,39 +3,84 @@ import { db } from '@/lib/db'
 import { getSession, requireRole } from '@/lib/auth'
 import { TAX_CATEGORIES } from '@/components/tax-system/lib'
 
-// GET /api/tax-targets?fiscalYear=...
-// Any logged-in staff can view targets.
+// GET /api/tax-targets?fiscalYear=...&level=...&subCityId=...&woredaId=...&teamId=...
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const fiscalYear = searchParams.get('fiscalYear')
+  const level = searchParams.get('level') // CITY, SUBCITY, WOREDA, TEAM
+  const subCityId = searchParams.get('subCityId')
+  const woredaId = searchParams.get('woredaId')
+  const teamId = searchParams.get('teamId')
 
   const where: Record<string, unknown> = {}
   if (fiscalYear) where.fiscalYear = fiscalYear
+  if (level) where.level = level
+  if (subCityId) where.subCityId = subCityId
+  if (woredaId) where.woredaId = woredaId
+  if (teamId) where.teamId = teamId
 
   const targets = await db.yearlyTaxTarget.findMany({
     where,
-    include: { woreda: true, setBy: { select: { id: true, fullName: true } } },
-    orderBy: [{ fiscalYear: 'desc' }, { woredaId: 'asc' }, { category: 'asc' }],
+    orderBy: [{ level: 'asc' }, { category: 'asc' }],
+    include: {
+      woreda: { select: { id: true, name: true } },
+      subCity: { select: { id: true, name: true } },
+      team: { select: { id: true, name: true } },
+      setBy: { select: { id: true, fullName: true } },
+    },
   })
-  return NextResponse.json({ targets, currentUser: user })
+
+  // Build reconciliation data: for each CITY-level target, sum its SUBCITY children
+  // and check if they match. Same for SUBCITY → WOREDA and WOREDA → TEAM.
+  const reconciliation: Array<{
+    parentLevel: string
+    parentCategory: string
+    parentAmount: number
+    parentUnit: string
+    childrenSum: number
+    difference: number
+    isBalanced: boolean
+  }> = []
+
+  if (!level || level === 'CITY') {
+    const cityTargets = targets.filter(t => t.level === 'CITY')
+    for (const ct of cityTargets) {
+      const subCityChildren = await db.yearlyTaxTarget.findMany({
+        where: { fiscalYear: ct.fiscalYear, level: 'SUBCITY', category: ct.category },
+      })
+      const childrenSum = subCityChildren.reduce((s, c) => s + c.expectedAmount, 0)
+      if (childrenSum > 0) {
+        reconciliation.push({
+          parentLevel: 'CITY',
+          parentCategory: ct.category,
+          parentAmount: ct.expectedAmount,
+          parentUnit: 'City-wide',
+          childrenSum,
+          difference: ct.expectedAmount - childrenSum,
+          isBalanced: Math.abs(ct.expectedAmount - childrenSum) < 1,
+        })
+      }
+    }
+  }
+
+  return NextResponse.json({ targets, reconciliation, currentUser: user })
 }
 
-// POST /api/tax-targets  (Leader only)
-// Body: { fiscalYear, woredaId (nullable), category, expectedAmount, notes? }
+// POST /api/tax-targets — create or update a target at any hierarchy level
 export async function POST(req: NextRequest) {
   let user
   try {
-    user = await requireRole('LEADER', 'SYSTEM_ADMIN')
+    user = await requireRole('LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN', 'WOREDA_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
   }
 
   const body = await req.json()
-  const { fiscalYear, woredaId, category, expectedAmount, notes } = body
+  const { fiscalYear, category, expectedAmount, notes, subCityId, woredaId, teamId } = body
 
   if (!fiscalYear || !category || expectedAmount === undefined) {
     return NextResponse.json(
@@ -50,15 +95,32 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Upsert: one target per (fiscalYear, woredaId, category)
-  const effectiveWoredaId = woredaId || null
-  const existing = await db.yearlyTaxTarget.findUnique({
+  // Determine the hierarchy level
+  let level = 'CITY'
+  let targetSubCityId = null
+  let targetWoredaId = null
+  let targetTeamId = null
+
+  if (teamId) {
+    level = 'TEAM'
+    targetTeamId = teamId
+  } else if (woredaId) {
+    level = 'WOREDA'
+    targetWoredaId = woredaId
+  } else if (subCityId) {
+    level = 'SUBCITY'
+    targetSubCityId = subCityId
+  }
+
+  // Check for existing target at this level + category + fiscal year
+  const existing = await db.yearlyTaxTarget.findFirst({
     where: {
-      fiscalYear_woredaId_category: {
-        fiscalYear,
-        woredaId: effectiveWoredaId as string | null,
-        category,
-      },
+      fiscalYear,
+      level,
+      category,
+      subCityId: targetSubCityId,
+      woredaId: targetWoredaId,
+      teamId: targetTeamId,
     },
   })
 
@@ -71,19 +133,22 @@ export async function POST(req: NextRequest) {
         notes: notes || null,
         setByStaffId: user.id,
       },
-      include: { woreda: true },
+      include: { woreda: { select: { name: true } }, subCity: { select: { name: true } }, team: { select: { name: true } } },
     })
   } else {
     target = await db.yearlyTaxTarget.create({
       data: {
         fiscalYear,
-        woredaId: effectiveWoredaId,
+        level,
         category,
         expectedAmount: Number(expectedAmount),
         notes: notes || null,
         setByStaffId: user.id,
+        subCityId: targetSubCityId,
+        woredaId: targetWoredaId,
+        teamId: targetTeamId,
       },
-      include: { woreda: true },
+      include: { woreda: { select: { name: true } }, subCity: { select: { name: true } }, team: { select: { name: true } } },
     })
   }
 

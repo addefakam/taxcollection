@@ -7,311 +7,229 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { TAX_CATEGORIES, FISCAL_YEARS, fmtETB, categoryLabel } from './lib'
-import { Target, Plus, Pencil, Trash2, Save, Building2, AlertCircle } from 'lucide-react'
-
-interface Woreda {
-  id: string
-  name: string
-}
+import { Target, Plus, Pencil, Trash2, Building2, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
 
 interface TaxTarget {
   id: string
   fiscalYear: string
-  woredaId: string | null
-  woreda: Woreda | null
+  level: string
+  subCityId?: string | null
+  subCity?: { name: string } | null
+  woredaId?: string | null
+  woreda?: { name: string } | null
+  teamId?: string | null
+  team?: { name: string } | null
   category: string
   expectedAmount: number
-  notes: string | null
-  setBy: { id: string; fullName: string } | null
-  createdAt: string
+  notes?: string | null
+  setBy?: { fullName: string } | null
   updatedAt: string
+}
+
+interface ReconciliationItem {
+  parentLevel: string
+  parentCategory: string
+  parentAmount: number
+  parentUnit: string
+  childrenSum: number
+  difference: number
+  isBalanced: boolean
+}
+
+interface SubCityOption { id: string; name: string }
+interface WoredaOption { id: string; name: string; subCity?: { name: string } | null }
+interface TeamOption { id: string; name: string }
+
+const LEVELS = [
+  { value: 'CITY', label: 'City-wide' },
+  { value: 'SUBCITY', label: 'Sub-City' },
+  { value: 'WOREDA', label: 'Woreda' },
+  { value: 'TEAM', label: 'Team' },
+]
+
+const LEVEL_TONE: Record<string, string> = {
+  CITY: 'bg-indigo-100 text-indigo-700',
+  SUBCITY: 'bg-teal-100 text-teal-700',
+  WOREDA: 'bg-orange-100 text-orange-700',
+  TEAM: 'bg-cyan-100 text-cyan-700',
 }
 
 const emptyForm = {
   fiscalYear: FISCAL_YEARS[1],
-  woredaId: 'NONE',
+  level: 'CITY',
   category: 'BUSINESS',
   expectedAmount: '',
   notes: '',
+  subCityId: 'NONE',
+  woredaId: 'NONE',
+  teamId: 'NONE',
 }
 
 export function TaxTargets() {
   const { toast } = useToast()
   const [targets, setTargets] = useState<TaxTarget[]>([])
-  const [woredas, setWoredas] = useState<Woreda[]>([])
+  const [reconciliation, setReconciliation] = useState<ReconciliationItem[]>([])
+  const [subCities, setSubCities] = useState<SubCityOption[]>([])
+  const [woredas, setWoredas] = useState<WoredaOption[]>([])
+  const [teams, setTeams] = useState<TeamOption[]>([])
   const [loading, setLoading] = useState(true)
   const [fiscalYear, setFiscalYear] = useState<string>(FISCAL_YEARS[1])
-
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<TaxTarget | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(() => {
     setLoading(true)
-    try {
-      const r = await fetch(`/api/tax-targets?fiscalYear=${encodeURIComponent(fiscalYear)}`)
-      const d = await r.json()
+    Promise.all([
+      fetch(`/api/tax-targets?fiscalYear=${encodeURIComponent(fiscalYear)}`).then(r => r.json()),
+      fetch('/api/sub-cities').then(r => r.json()),
+      fetch('/api/woredas').then(r => r.json()),
+      fetch('/api/teams').then(r => r.json()),
+    ]).then(([d, sc, w, t]) => {
       setTargets(d.targets || [])
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false)
-    }
+      setReconciliation(d.reconciliation || [])
+      setSubCities(sc)
+      setWoredas(w)
+      setTeams(t)
+    }).finally(() => setLoading(false))
   }, [fiscalYear])
 
-  useEffect(() => {
-    load()
-  }, [load])
+  useEffect(() => { load() }, [load])
 
-  useEffect(() => {
-    fetch('/api/woredas')
-      .then((r) => r.json())
-      .then((d) => setWoredas(d))
-      .catch(() => {})
-  }, [])
-
-  const openCreate = () => {
-    setForm({ ...emptyForm, fiscalYear })
-    setEditing(null)
-    setOpen(true)
-  }
-
+  const openCreate = () => { setForm({ ...emptyForm, fiscalYear }); setEditing(null); setOpen(true) }
   const openEdit = (t: TaxTarget) => {
     setEditing(t)
     setForm({
-      fiscalYear: t.fiscalYear,
-      woredaId: t.woredaId || 'NONE',
-      category: t.category,
-      expectedAmount: String(t.expectedAmount),
-      notes: t.notes || '',
+      fiscalYear: t.fiscalYear, level: t.level, category: t.category,
+      expectedAmount: String(t.expectedAmount), notes: t.notes || '',
+      subCityId: t.subCityId || 'NONE', woredaId: t.woredaId || 'NONE', teamId: t.teamId || 'NONE',
     })
     setOpen(true)
   }
 
   const save = async () => {
-    if (!form.fiscalYear || !form.category || !form.expectedAmount) {
-      toast({
-        title: 'Missing fields',
-        description: 'Fiscal year, category and expected amount are required.',
-        variant: 'destructive',
-      })
-      return
-    }
+    if (!form.expectedAmount) { toast({ title: 'Missing', description: 'Amount is required.', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      const payload = {
-        fiscalYear: form.fiscalYear,
-        woredaId: form.woredaId === 'NONE' ? null : form.woredaId,
-        category: form.category,
-        expectedAmount: Number(form.expectedAmount),
-        notes: form.notes,
+      const payload: Record<string, unknown> = {
+        fiscalYear: form.fiscalYear, category: form.category,
+        expectedAmount: Number(form.expectedAmount), notes: form.notes || null,
       }
-      let res
-      if (editing) {
-        res = await fetch(`/api/tax-targets/${editing.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-      } else {
-        res = await fetch('/api/tax-targets', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-      }
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to save')
-      toast({
-        title: editing ? 'Target updated' : 'Target created',
-        description: `${categoryLabel(form.category)} — ${fmtETB(Number(form.expectedAmount))}${
-          form.woredaId !== 'NONE' ? ` (Woreda: ${woredas.find((w) => w.id === form.woredaId)?.code})` : ' (city-wide)'
-        }`,
+      if (form.level === 'SUBCITY') payload.subCityId = form.subCityId !== 'NONE' ? form.subCityId : null
+      if (form.level === 'WOREDA') payload.woredaId = form.woredaId !== 'NONE' ? form.woredaId : null
+      if (form.level === 'TEAM') payload.teamId = form.teamId !== 'NONE' ? form.teamId : null
+
+      const res = await fetch(editing ? `/api/tax-targets/${editing.id}` : '/api/tax-targets', {
+        method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
-      setOpen(false)
-      load()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      toast({ title: editing ? 'Target updated' : 'Target created', description: `${categoryLabel(form.category)} — ${fmtETB(Number(form.expectedAmount))}` })
+      setOpen(false); load()
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to save'
-      toast({ title: 'Error', description: msg, variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed', variant: 'destructive' })
+    } finally { setSaving(false) }
   }
 
   const remove = async (t: TaxTarget) => {
-    if (!confirm(`Delete this target?\n${categoryLabel(t.category)} — ${fmtETB(t.expectedAmount)}`))
-      return
+    if (!confirm(`Delete target for ${categoryLabel(t.category)}?`)) return
     const res = await fetch(`/api/tax-targets/${t.id}`, { method: 'DELETE' })
-    if (res.ok) {
-      toast({ title: 'Target deleted' })
-      load()
-    } else {
-      const d = await res.json()
-      toast({ title: 'Error', description: d.error, variant: 'destructive' })
-    }
+    if (res.ok) { toast({ title: 'Target deleted' }); load() }
   }
 
-  // Group targets by woredaId for display
-  const grouped = new Map<string, TaxTarget[]>()
+  // Group targets by level
+  const grouped: Record<string, TaxTarget[]> = { CITY: [], SUBCITY: [], WOREDA: [], TEAM: [] }
   for (const t of targets) {
-    const key = t.woredaId || '__none__'
-    if (!grouped.has(key)) grouped.set(key, [])
-    grouped.get(key)!.push(t)
+    if (!grouped[t.level]) grouped[t.level] = []
+    grouped[t.level].push(t)
   }
 
-  const totalExpected = targets.reduce((s, t) => s + t.expectedAmount, 0)
+  const totalByLevel = (level: string) => grouped[level]?.reduce((s, t) => s + t.expectedAmount, 0) || 0
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Yearly Tax Targets
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Set the expected tax to be collected per category (city-wide or per woreda) for each fiscal year.
-            The Revenue Dashboard compares these targets against actual collections.
-          </p>
+          <h2 className="text-lg font-semibold flex items-center gap-2"><Target className="h-5 w-5 text-primary" />Tax Targets — Cascade</h2>
+          <p className="text-sm text-muted-foreground mt-1">Set targets at city, sub-city, woreda, and team levels. Child targets should sum to the parent.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Label htmlFor="fy" className="text-xs text-muted-foreground">
-            Fiscal Year:
-          </Label>
           <Select value={fiscalYear} onValueChange={setFiscalYear}>
-            <SelectTrigger id="fy" className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FISCAL_YEARS.map((fy) => (
-                <SelectItem key={fy} value={fy}>
-                  {fy}
-                </SelectItem>
-              ))}
-            </SelectContent>
+            <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>{FISCAL_YEARS.map(fy => <SelectItem key={fy} value={fy}>{fy}</SelectItem>)}</SelectContent>
           </Select>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> New Target
-          </Button>
+          <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> Add Target</Button>
         </div>
       </div>
 
-      {/* Summary card */}
-      <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="p-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-muted-foreground">
-              Total expected for {fiscalYear}
-            </p>
-            <p className="text-2xl font-bold tracking-tight">{fmtETB(totalExpected)}</p>
-          </div>
-          <Badge variant="secondary">{targets.length} target(s)</Badge>
-        </CardContent>
-      </Card>
-
-      {/* Targets grouped by woreda */}
-      {loading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      ) : targets.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <AlertCircle className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              No targets set for {fiscalYear}. Click “New Target” to set the first one.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Without targets, the Revenue Dashboard will show 0% collection rate.
-            </p>
+      {/* Reconciliation summary */}
+      {reconciliation.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />Reconciliation: City vs Sub-City</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {reconciliation.map((r, i) => (
+              <div key={i} className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2">
+                  {r.isBalanced ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}
+                  <span className="font-medium">{categoryLabel(r.parentCategory)}</span>
+                </span>
+                <span className="flex items-center gap-2 text-xs">
+                  <span>Parent: {fmtETB(r.parentAmount)}</span>
+                  <span>Children sum: {fmtETB(r.childrenSum)}</span>
+                  <Badge variant={r.isBalanced ? 'secondary' : 'destructive'} className="text-[10px]">
+                    {r.isBalanced ? 'Balanced' : `Diff: ${fmtETB(Math.abs(r.difference))}`}
+                  </Badge>
+                </span>
+              </div>
+            ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* Targets by level */}
+      {loading ? (
+        <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}</div>
+      ) : targets.length === 0 ? (
+        <Card><CardContent className="p-8 text-center"><Target className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" /><p className="text-sm text-muted-foreground">No targets for {fiscalYear}. Click &quot;Add Target&quot;.</p></CardContent></Card>
       ) : (
         <div className="space-y-4">
-          {Array.from(grouped.entries()).map(([key, items]) => {
-            const woreda = key === '__none__' ? null : woredas.find((w) => w.id === key)
-            const isCityWide = key === '__none__'
-            const groupTotal = items.reduce((s, t) => s + t.expectedAmount, 0)
+          {LEVELS.map(lvl => {
+            const items = grouped[lvl.value]
+            if (!items || items.length === 0) return null
             return (
-              <Card key={key}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center justify-between text-base">
+              <Card key={lvl.value}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                      {isCityWide ? (
-                        <>
-                          <Building2 className="h-4 w-4 text-primary" />
-                          City-wide (all woredas)
-                        </>
-                      ) : (
-                        <>
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          {woreda?.name || 'Unknown woreda'}
-                          <Badge variant="outline" className="text-[10px]">
-                            Code {woreda?.code || '—'}
-                          </Badge>
-                        </>
-                      )}
+                      <Layers className="h-4 w-4 text-primary" />
+                      <Badge variant="secondary" className={LEVEL_TONE[lvl.value]}>{lvl.label}</Badge>
+                      {items.length} target(s)
                     </span>
-                    <Badge variant="secondary">{fmtETB(groupTotal)}</Badge>
+                    <Badge variant="outline">{fmtETB(totalByLevel(lvl.value))}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y">
-                    {items.map((t) => (
-                      <div
-                        key={t.id}
-                        className="p-3 flex flex-wrap items-center gap-3 hover:bg-muted/30"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">
-                            {categoryLabel(t.category)}
-                          </p>
-                          {t.notes && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                              {t.notes}
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Set by {t.setBy?.fullName || '—'} · updated{' '}
-                            {new Date(t.updatedAt).toLocaleDateString('en-GB')}
+                    {items.map(t => (
+                      <div key={t.id} className="p-3 flex items-center justify-between gap-3 hover:bg-muted/30">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm">{categoryLabel(t.category)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t.subCity?.name || ''}{t.woreda?.name ? ` → ${t.woreda.name}` : ''}{t.team?.name ? ` → ${t.team.name}` : ''}
+                            {!t.subCity && !t.woreda && !t.team && 'City-wide'}
+                            {t.notes && ` · ${t.notes}`}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-sm">{fmtETB(t.expectedAmount)}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => remove(t)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{fmtETB(t.expectedAmount)}</span>
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(t)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(t)}><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       </div>
                     ))}
@@ -323,122 +241,76 @@ export function TaxTargets() {
         </div>
       )}
 
-      {/* Create / Edit dialog */}
+      {/* Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              {editing ? 'Edit Tax Target' : 'New Tax Target'}
-            </DialogTitle>
-            <DialogDescription>
-              Set the expected tax to be collected for a category in a fiscal year. Use “City-wide” for the
-              whole-city target, or pick a woreda to set a woreda-specific target.
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary" />{editing ? 'Edit Target' : 'Add Target'}</DialogTitle>
+            <DialogDescription>Set a tax collection target at any hierarchy level.</DialogDescription>
           </DialogHeader>
-
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Fiscal Year *</Label>
-                <Select
-                  value={form.fiscalYear}
-                  onValueChange={(v) => setForm({ ...form, fiscalYear: v })}
-                  disabled={!!editing}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FISCAL_YEARS.map((fy) => (
-                      <SelectItem key={fy} value={fy}>
-                        {fy}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Label>Fiscal Year</Label>
+                <Select value={form.fiscalYear} onValueChange={v => setForm({...form, fiscalYear: v})} disabled={!!editing}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{FISCAL_YEARS.map(fy => <SelectItem key={fy} value={fy}>{fy}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Category *</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(v) => setForm({ ...form, category: v })}
-                  disabled={!!editing}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TAX_CATEGORIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>
-                        {c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Label>Level</Label>
+                <Select value={form.level} onValueChange={v => setForm({...form, level: v, subCityId: 'NONE', woredaId: 'NONE', teamId: 'NONE'})} disabled={!!editing}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{LEVELS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-
             <div className="space-y-1.5">
-              <Label>Scope *</Label>
-              <Select
-                value={form.woredaId}
-                onValueChange={(v) => setForm({ ...form, woredaId: v })}
-                disabled={!!editing}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">City-wide (all woredas)</SelectItem>
-                  {woredas.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      Woreda: {w.code} — {w.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+              <Label>Category</Label>
+              <Select value={form.category} onValueChange={v => setForm({...form, category: v})} disabled={!!editing}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{TAX_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-
+            {form.level === 'SUBCITY' && (
+              <div className="space-y-1.5">
+                <Label>Sub-City *</Label>
+                <Select value={form.subCityId} onValueChange={v => setForm({...form, subCityId: v})}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>{subCities.map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            {form.level === 'WOREDA' && (
+              <div className="space-y-1.5">
+                <Label>Woreda *</Label>
+                <Select value={form.woredaId} onValueChange={v => setForm({...form, woredaId: v})}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>{woredas.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+            {form.level === 'TEAM' && (
+              <div className="space-y-1.5">
+                <Label>Team *</Label>
+                <Select value={form.teamId} onValueChange={v => setForm({...form, teamId: v})}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Expected Amount (ETB) *</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.expectedAmount}
-                onChange={(e) => setForm({ ...form, expectedAmount: e.target.value })}
-                placeholder="0.00"
-              />
-              <p className="text-xs text-muted-foreground">
-                Total the city expects to collect for this category in this fiscal year.
-              </p>
+              <Input type="number" min="0" step="0.01" value={form.expectedAmount} onChange={e => setForm({...form, expectedAmount: e.target.value})} placeholder="0.00" />
             </div>
-
             <div className="space-y-1.5">
-              <Label>Notes (optional)</Label>
-              <Input
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                placeholder="e.g. Based on 2025/2026 actuals + 10% growth"
-              />
+              <Label>Notes</Label>
+              <Input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="Optional" />
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={saving} className="gap-2">
-              {saving ? (
-                'Saving…'
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {editing ? 'Save Changes' : 'Create Target'}
-                </>
-              )}
-            </Button>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Saving…' : editing ? 'Save' : 'Create'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -28,6 +28,7 @@ model SubCity {
   assignedStaff Staff[] @relation("StaffAssignedSubCity")
   teams         Team[]
   plans         Plan[]
+  targets       YearlyTaxTarget[]
 }
 
 // Woreda (sub-district) — belongs to a Sub-City.
@@ -105,6 +106,7 @@ model Team {
 
   members     Staff[] @relation("TeamMembers")
   plans       Plan[]
+  targets     YearlyTaxTarget[]
 }
 
 // Collection Plan — supports daily/weekly/monthly/quarterly/annual planning
@@ -299,15 +301,25 @@ model AssignmentHistory {
 model YearlyTaxTarget {
   id              String   @id @default(cuid())
   fiscalYear      String   // e.g. "2026/2027"
-  woredaId        String?  // null = city-wide target for this category
+  // Hierarchy level: CITY (all null), SUBCITY (subCityId set),
+  // WOREDA (woredaId set), TEAM (teamId set)
+  level           String   @default("CITY") // CITY, SUBCITY, WOREDA, TEAM
+  subCityId       String?
+  subCity         SubCity? @relation(fields: [subCityId], references: [id])
+  woredaId        String?
   woreda          Woreda?  @relation(fields: [woredaId], references: [id])
+  teamId          String?
+  team            Team?    @relation(fields: [teamId], references: [id])
   category        String   // BUSINESS, PROPERTY, INDIVIDUAL_INCOME, VEHICLE, VAT, WITHHOLDING
-  expectedAmount  Float    // ETB - the target the city expects to collect
+  expectedAmount  Float    // ETB - the target expected to collect
   notes           String?
   setByStaffId    String?
   setBy           Staff?   @relation(fields: [setByStaffId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([fiscalYear, woredaId, category])
+  @@index([fiscalYear, level])
+  @@index([fiscalYear, subCityId])
+  @@index([fiscalYear, woredaId])
+  @@index([fiscalYear, teamId])
 }

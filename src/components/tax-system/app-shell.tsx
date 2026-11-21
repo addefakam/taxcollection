@@ -68,13 +68,13 @@ const TABS: Array<{
     key: 'revenue',
     label: 'City Revenue',
     icon: TrendingUp,
-    visibleTo: ['LEADER', 'CITY_REVENUE_OFFICER'],
+    visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'CITY_REVENUE_OFFICER', 'SUBCITY_ADMIN', 'WOREDA_ADMIN'],
   },
   {
     key: 'targets',
     label: 'Tax Targets',
     icon: Target,
-    visibleTo: ['LEADER', 'CITY_REVENUE_OFFICER'],
+    visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'CITY_REVENUE_OFFICER', 'SUBCITY_ADMIN', 'WOREDA_ADMIN'],
   },
   {
     key: 'staff',
