@@ -56,3 +56,6 @@ server.log
 # Local SQLite test databases (do not commit)
 db/*.db
 db/*.db-journal
+
+# Local dev schema (sqlite copy — never commit)
+prisma/schema.dev.prisma

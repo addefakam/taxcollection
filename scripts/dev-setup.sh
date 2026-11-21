@@ -16,14 +16,18 @@
 set -e
 cd "$(dirname "$0")/.."  # go to project root
 
-echo "=== 1. Swap schema to sqlite (local only — git keeps postgres) ==="
+echo "=== 1. Create local dev schema (sqlite copy — committed schema stays postgres) ==="
 SCHEMA=prisma/schema.prisma
-if ! grep -q 'provider = "sqlite"' "$SCHEMA"; then
-  sed -i 's|provider = "postgresql"|provider = "sqlite"|' "$SCHEMA"
-  echo "   swapped to sqlite"
+DEV_SCHEMA=prisma/schema.dev.prisma
+if [ -f "$DEV_SCHEMA" ] && grep -q 'provider = "sqlite"' "$DEV_SCHEMA"; then
+  echo "   dev schema already exists (sqlite)"
 else
-  echo "   already sqlite"
+  cp "$SCHEMA" "$DEV_SCHEMA"
+  sed -i 's|provider = "postgresql"|provider = "sqlite"|' "$DEV_SCHEMA"
+  echo "   created prisma/schema.dev.prisma (sqlite copy)"
 fi
+# Use the dev schema for all prisma commands below
+PRISMA_SCHEMA_FLAG="--schema=$DEV_SCHEMA"
 
 echo ""
 echo "=== 2. Recreate local SQLite db folder ==="
@@ -49,8 +53,8 @@ fi
 
 echo ""
 echo "=== 4. Push schema + regenerate Prisma client ==="
-bunx prisma db push --accept-data-loss --force-reset 2>&1 | tail -3
-bunx prisma generate 2>&1 | tail -2
+bunx prisma db push --accept-data-loss --force-reset $PRISMA_SCHEMA_FLAG 2>&1 | tail -3
+bunx prisma generate $PRISMA_SCHEMA_FLAG 2>&1 | tail -2
 
 echo ""
 echo "=== 5. Verify new fields are in the generated client ==="
