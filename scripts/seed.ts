@@ -3,13 +3,12 @@ import { db } from '../src/lib/db'
 import { hashPassword } from '../src/lib/password'
 
 async function main() {
-  console.log('1. Seeding Sub-Cities + Woredas...')
+  console.log('1. Seeding Sub-Cities (no woredas — you create them from the UI)...')
   const subCitiesData = [
-    { name: 'Bishoftu Central', region: 'Oromia', woredas: ['Town Center', 'Bole Road'] },
-    { name: 'Lake Side', region: 'Oromia', woredas: ['Lake Front', 'Riverside'] },
-    { name: 'Industrial Zone', region: 'Oromia', woredas: ['Factory Area', 'Warehouse District'] },
+    { name: 'Bishoftu Central', region: 'Oromia' },
+    { name: 'Lake Side', region: 'Oromia' },
+    { name: 'Industrial Zone', region: 'Oromia' },
   ]
-  const woredaRecords: Record<string, { id: string }> = {}
   for (const scData of subCitiesData) {
     const sc = await db.subCity.upsert({
       where: { name: scData.name },
@@ -17,16 +16,8 @@ async function main() {
       create: { name: scData.name, region: scData.region },
     })
     console.log(`  Sub-City: ${scData.name}`)
-    for (const wName of scData.woredas) {
-      const w = await db.woreda.upsert({
-        where: { name: wName },
-        update: {},
-        create: { name: wName, region: scData.region, subCityId: sc.id },
-      })
-      woredaRecords[wName] = w
-      console.log(`    Woreda: ${wName}`)
-    }
   }
+  const woredaRecords: Record<string, { id: string }> = {}
 
   console.log('\n2. Seeding Staff (with passwords)...')
   const leaderPassword = 'Bishoftu@2026' // default leader password — change after first login!
@@ -38,8 +29,8 @@ async function main() {
     { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas' },
     { fullName: 'Ato Habtamu Girma', email: 'revenue@bishoftu.gov.et', phone: '+251911100006', role: 'CITY_REVENUE_OFFICER', password: 'Revenue@habtamu' },
     // Data Collectors (Galmeewwan) — one per woreda
-    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', assignedWoredaName: 'Town Center', password: 'Woreda01@lemma' },
-    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', assignedWoredaName: 'Lake Front', password: 'Woreda02@chaltu' },
+    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', assignedWoredaName: null, password: 'Woreda01@lemma' },
+    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', assignedWoredaName: null, password: 'Woreda02@chaltu' },
   ]
   const staffRecords: Record<string, { id: string; fullName: string }> = {}
   for (const s of staff) {
@@ -82,7 +73,7 @@ async function main() {
       phone: '+251911234567',
       email: 'admasu.trading@gmail.com',
       address: 'Bole Road, Near Bishoftu Tower',
-      woredaName: 'Town Center',
+      woredaName: null,
       kebele: '03',
       tradeLicenseNo: 'BL-001-2018',
       contactPerson: 'Ato Admasu G.',
@@ -93,7 +84,7 @@ async function main() {
       category: 'BUSINESS',
       phone: '+251911345678',
       address: 'Lake Side, Bishoftu',
-      woredaName: 'Lake Front',
+      woredaName: null,
       kebele: '05',
       tradeLicenseNo: 'BL-002-2019',
       contactPerson: 'W/ro Chelchel A.',
@@ -104,7 +95,7 @@ async function main() {
       category: 'INDIVIDUAL_INCOME',
       phone: '+251911456789',
       address: 'Kebe 08, Bishoftu',
-      woredaName: 'Bole Road',
+      woredaName: null,
       kebele: '08',
     },
     {
@@ -114,7 +105,7 @@ async function main() {
       phone: '+251911567890',
       email: 'greenland.hotel@gmail.com',
       address: 'Main Road, Bishoftu',
-      woredaName: 'Town Center',
+      woredaName: null,
       kebele: '01',
       tradeLicenseNo: 'BL-004-2015',
       contactPerson: 'Ato Getachew B.',
@@ -125,7 +116,7 @@ async function main() {
       category: 'PROPERTY',
       phone: '+251911678901',
       address: 'Africa Avenue, Bishoftu',
-      woredaName: 'Lake Front',
+      woredaName: null,
       kebele: '02',
     },
     {
@@ -135,7 +126,7 @@ async function main() {
       phone: '+251911789012',
       email: 'info@bishoftuconstruction.com',
       address: 'Industrial Zone, Bishoftu',
-      woredaName: 'Factory Area',
+      woredaName: null,
       kebele: '11',
       tradeLicenseNo: 'BL-006-2010',
       contactPerson: 'Ato Solomon T.',
@@ -146,7 +137,7 @@ async function main() {
       category: 'VEHICLE',
       phone: '+251911890123',
       address: 'Wello Sefer, Bishoftu',
-      woredaName: 'Lake Front',
+      woredaName: null,
       kebele: '07',
     },
     {
@@ -156,7 +147,7 @@ async function main() {
       phone: '+251911901234',
       email: 'lakeview.re@gmail.com',
       address: 'Lake Front, Bishoftu',
-      woredaName: 'Bole Road',
+      woredaName: null,
       kebele: '04',
       tradeLicenseNo: 'BL-008-2020',
       contactPerson: 'W/ro Marta G.',
@@ -167,7 +158,7 @@ async function main() {
       category: 'INDIVIDUAL_INCOME',
       phone: '+251912012345',
       address: 'Asella Road, Bishoftu',
-      woredaName: 'Riverside',
+      woredaName: null,
       kebele: '06',
     },
     {
@@ -177,7 +168,7 @@ async function main() {
       phone: '+251912123456',
       email: 'dashen.bishoftu@dashenbank.com',
       address: 'Central Market, Bishoftu',
-      woredaName: 'Lake Front',
+      woredaName: null,
       kebele: '01',
       tradeLicenseNo: 'BL-010-2012',
       contactPerson: 'Ato Henok D.',
@@ -197,9 +188,7 @@ async function main() {
     console.log(`  TaxPayer: ${rest.tin} - ${rest.fullName}`)
   }
 
-  console.log(`\nDone. Seeded ${woredas.length} woredas, ${staff.length} staff, ${sampleTaxPayers.length} tax payers.`)
-
-  console.log('\n4. Seeding Yearly Tax Targets (expected tax per category + per woreda)...')
+  console.log('\n4. Seeding Yearly Tax Targets (expected tax per category)...')
   const leaderRec = staffRecords['leader@bishoftu.gov.et']
   const fiscalYear = '2026/2027'
 
@@ -229,46 +218,10 @@ async function main() {
     console.log(`  City-wide target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()}`)
   }
 
-  // Per-woreda targets (sample: 3 woredas × 3 categories)
-  const woredaTargets = [
-    // Woreda 01 - Town Center (largest business district)
-    { woredaName: 'Town Center', category: 'BUSINESS', expectedAmount: 2_500_000 },
-    { woredaName: 'Town Center', category: 'VAT', expectedAmount: 3_800_000 },
-    { woredaName: 'Town Center', category: 'PROPERTY', expectedAmount: 850_000 },
-    // Woreda 02 - Lake Side (mid-tier)
-    { woredaName: 'Lake Front', category: 'BUSINESS', expectedAmount: 1_400_000 },
-    { woredaName: 'Lake Front', category: 'PROPERTY', expectedAmount: 720_000 },
-    // Woreda 04 - Industrial Zone (heavy)
-    { woredaName: 'Factory Area', category: 'BUSINESS', expectedAmount: 1_900_000 },
-    { woredaName: 'Factory Area', category: 'VAT', expectedAmount: 2_600_000 },
-  ]
-  for (const t of woredaTargets) {
-    const woredaRec = woredaRecords[t.woredaName]
-    if (!woredaRec) continue
-    const existing = await db.yearlyTaxTarget.findFirst({
-      where: { fiscalYear, woredaId: woredaRec.id, category: t.category },
-    })
-    if (existing) {
-      await db.yearlyTaxTarget.update({
-        where: { id: existing.id },
-        data: { expectedAmount: t.expectedAmount, setByStaffId: leaderRec?.id || null },
-      })
-    } else {
-      await db.yearlyTaxTarget.create({
-        data: {
-          fiscalYear,
-          woredaId: woredaRec.id,
-          category: t.category,
-          expectedAmount: t.expectedAmount,
-          setByStaffId: leaderRec?.id || null,
-        },
-      })
-    }
-    console.log(`  Woreda: ${t.woredaName} target: ${t.category} → ETB ${t.expectedAmount.toLocaleString()}`)
-  }
+  // No per-woreda targets seeded — woredas don't exist yet.
+  // You can set per-woreda targets from the Tax Targets tab after creating woredas.
 
-  const totalTargets = cityWideTargets.length + woredaTargets.length
-  console.log(`Done. Seeded ${totalTargets} yearly tax targets (${cityWideTargets.length} city-wide + ${woredaTargets.length} per-woreda).`)
+  console.log(`\nDone. Seeded ${subCitiesData.length} sub-cities, ${staff.length} staff, ${sampleTaxPayers.length} tax payers, ${cityWideTargets.length} city-wide tax targets.`)
   console.log('\nNext step: run `bun run scripts/seed-assignments.ts` to add sample tax assignments.')
 }
 
