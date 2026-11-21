@@ -30,8 +30,11 @@ import {
   Layers,
   CalendarDays,
   FileText,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 export interface SessionUser {
   id: string
@@ -58,7 +61,7 @@ const TABS: Array<{
   key: Tab
   label: string
   icon: typeof LayoutDashboard
-  visibleTo?: Role[] // if undefined, visible to all
+  visibleTo?: Role[]
 }> = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'taxpayers', label: 'Tax Payers', icon: Users },
@@ -117,9 +120,9 @@ const TABS: Array<{
 export function AppShell({ user }: { user: SessionUser }) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const visibleTabs = TABS.filter((t) => !t.visibleTo || t.visibleTo.includes(user.role))
-  // Safety: if the user somehow has a tab selected they're not allowed to see, fall back to dashboard
   const selectedTab = visibleTabs.find((t) => t.key === tab)
   const safeTab: Tab = selectedTab ? tab : 'dashboard'
 
@@ -136,45 +139,74 @@ export function AppShell({ user }: { user: SessionUser }) {
 
         <RoleBanner role={user.role} />
 
-        {/* Tabs */}
-        <nav className="sticky top-[57px] z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-          <div className="mx-auto max-w-7xl px-2 sm:px-6 flex overflow-x-auto">
-            {visibleTabs.map((t) => {
-              const active = safeTab === t.key
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    active
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-                  }`}
-                >
-                  <t.icon className="h-4 w-4" />
-                  <span>{t.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </nav>
+        {/* Main layout: sidebar + content */}
+        <div className="flex flex-1 min-h-0">
+          {/* Vertical sidebar */}
+          <aside
+            className={`${
+              sidebarOpen ? 'w-60' : 'w-16'
+            } flex-shrink-0 border-r bg-card transition-all duration-200 sticky top-[100px] self-start`}
+            style={{ height: 'calc(100vh - 100px)' }}
+          >
+            {/* Collapse toggle */}
+            <div className="flex items-center justify-end p-2 border-b">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              >
+                {sidebarOpen ? (
+                  <ChevronLeft className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
 
-        <main className="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 py-6">
-          {safeTab === 'dashboard' && <Dashboard />}
-          {safeTab === 'taxpayers' && <TaxPayers />}
-          {safeTab === 'assignments' && <Assignments />}
-          {safeTab === 'tracker' && <ProcessTracker />}
-          {safeTab === 'revenue' && selectedTab && <RevenueDashboard />}
-          {safeTab === 'targets' && selectedTab && <TaxTargets />}
-          {safeTab === 'staff' && selectedTab && (
-            <StaffManagement currentUser={user} />
-          )}
-          {safeTab === 'woredas' && selectedTab && <SubCitiesManagement />}
-          {safeTab === 'teams' && selectedTab && <TeamsManagement />}
-          {safeTab === 'plans' && selectedTab && <PlansManagement />}
-          {safeTab === 'reports' && selectedTab && <ReportsManagement />}
-          {safeTab === 'permissions' && selectedTab && <PermissionsManagement />}
-        </main>
+            {/* Vertical menu items */}
+            <nav className="flex flex-col p-2 gap-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+              {visibleTabs.map((t) => {
+                const active = safeTab === t.key
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    title={t.label}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    } ${sidebarOpen ? '' : 'justify-center'}`}
+                  >
+                    <t.icon className="h-5 w-5 flex-shrink-0" />
+                    {sidebarOpen && <span className="truncate">{t.label}</span>}
+                  </button>
+                )
+              })}
+            </nav>
+          </aside>
+
+          {/* Main content area */}
+          <main className="flex-1 min-w-0 overflow-x-auto px-4 sm:px-6 py-6">
+            <div className="mx-auto max-w-7xl">
+              {safeTab === 'dashboard' && <Dashboard />}
+              {safeTab === 'taxpayers' && <TaxPayers />}
+              {safeTab === 'assignments' && <Assignments />}
+              {safeTab === 'tracker' && <ProcessTracker />}
+              {safeTab === 'revenue' && selectedTab && <RevenueDashboard />}
+              {safeTab === 'targets' && selectedTab && <TaxTargets />}
+              {safeTab === 'staff' && selectedTab && (
+                <StaffManagement currentUser={user} />
+              )}
+              {safeTab === 'woredas' && selectedTab && <SubCitiesManagement />}
+              {safeTab === 'teams' && selectedTab && <TeamsManagement />}
+              {safeTab === 'plans' && selectedTab && <PlansManagement />}
+              {safeTab === 'reports' && selectedTab && <ReportsManagement />}
+              {safeTab === 'permissions' && selectedTab && <PermissionsManagement />}
+            </div>
+          </main>
+        </div>
 
         <footer className="mt-auto border-t bg-muted/30">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
