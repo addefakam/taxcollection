@@ -6,6 +6,7 @@ import { hashPassword } from './password'
 export interface SetupResult {
   alreadyInitialized: boolean
   created: {
+    subCities: number
     woredas: number
     staff: number
     taxPayers: number
@@ -97,7 +98,8 @@ export async function setupDatabase(): Promise<SetupResult> {
   return {
     alreadyInitialized: wasAlreadyInitialized,
     created: {
-      woredas: woredas.length,
+      subCities: subCitiesData.length,
+      woredas: 0,
       staff: staffCount,
       taxPayers: 0,
       taxTargets: targetCount,
