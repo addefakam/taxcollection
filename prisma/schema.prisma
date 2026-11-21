@@ -85,6 +85,7 @@ model Staff {
   ledTeams                  Team[] @relation("TeamLead")
   plansResponsible          Plan[] @relation("PlanResponsible")
   plansCreated              Plan[] @relation("PlanCreator")
+  notificationsReceived     Notification[] @relation("NotificationsReceived")
 }
 
 // Team — organizational unit within a woreda (or sub-city)
@@ -143,7 +144,27 @@ model Plan {
   updatedAt       DateTime @updatedAt
 }
 
-// Dynamic permission matrix — System Admin can toggle these per role.
+// Notification — alerts for deadlines, overdue, low performance, plans, etc.
+model Notification {
+  id              String   @id @default(cuid())
+  type            String   // DEADLINE_WARNING, OVERDUE, LOW_PERFORMANCE, PLAN_INCOMPLETE, PLAN_OVERDUE, TARGET_ASSIGNED, TARGET_ACHIEVED, ASSIGNMENT_CREATED, BANK_RECEIPT_RECEIVED, GOVT_RECEIPT_ISSUED, GENERAL
+  title           String
+  message         String
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  // Recipient: either specific staff OR broadcast to a role
+  recipientStaffId String?
+  recipient       Staff?   @relation("NotificationsReceived", fields: [recipientStaffId], references: [id])
+  broadcastRole   String?  // if set, all staff with this role see it
+  // Related entity (optional link)
+  relatedType     String?  // ASSIGNMENT, PLAN, TARGET, TAXPAYER, STAFF
+  relatedId       String?
+  // Read tracking
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([recipientStaffId])
+  @@index([broadcastRole])
+}
 // Each row = "can role X perform action Y?"
 // If no row exists for a (role, action) pair, the default from ACTIONS
 // constant in src/lib/permissions.ts is used.

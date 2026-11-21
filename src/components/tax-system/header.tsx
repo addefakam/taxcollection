@@ -25,6 +25,7 @@ import { Building2, ChevronDown, LogOut, KeyRound, Mail, Shield, MapPin } from '
 import { useState } from 'react'
 import type { SessionUser } from './app-shell'
 import { ROLES, Role } from './lib'
+import { NotificationBell } from './notification-bell'
 
 const ROLE_LABEL: Record<Role, string> = {
   LEADER: 'Finance Leader',
@@ -116,6 +117,9 @@ export function Header({ user, onLogout }: HeaderProps) {
               </p>
             </div>
           </div>
+
+          {/* Notification bell */}
+          <NotificationBell />
 
           {/* User menu */}
           <DropdownMenu>

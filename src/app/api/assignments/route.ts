@@ -154,5 +154,21 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  // Auto-notify: broadcast to Team 2 (Finance) that a new assignment needs bank receipt processing
+  try {
+    const { notifyRole } = await import('@/lib/notifications')
+    await notifyRole(
+      'TEAM_2_FINANCE',
+      'ASSIGNMENT_CREATED',
+      `New Assignment: ${assignment.referenceNo}`,
+      `ETB ${Number(amountDue).toLocaleString()} (${taxType}) assigned to ${assignment.taxPayer.fullName}. Awaiting bank receipt.`,
+      'MEDIUM',
+      'ASSIGNMENT',
+      assignment.id,
+    )
+  } catch {
+    // ignore notification errors
+  }
+
   return NextResponse.json(assignment, { status: 201 })
 }
