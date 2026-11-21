@@ -25,10 +25,10 @@ export async function GET() {
   return NextResponse.json(subCities)
 }
 
-// POST /api/sub-cities — create a new sub-city (Leader or System Admin)
+// POST /api/sub-cities — create a new sub-city
 export async function POST(req: NextRequest) {
   try {
-    await requireRole('LEADER', 'SYSTEM_ADMIN')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e

@@ -25,11 +25,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(woredas)
 }
 
-// POST /api/woredas  (Leader or System Admin)
+// POST /api/woredas  (Leader, System Admin, City Admin, SubCity Admin)
 // Body: { name, region?, subCityId? }
 export async function POST(req: NextRequest) {
   try {
-    await requireRole('LEADER', 'SYSTEM_ADMIN')
+    await requireRole('LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN')
   } catch (e) {
     if (e instanceof Response) return NextResponse.json(await e.json(), { status: e.status })
     throw e
