@@ -75,8 +75,8 @@ export async function GET(req: NextRequest) {
 // POST /api/plans — create a plan
 // Hierarchical scoping: each role can create plans DOWNWARD only — not upward.
 //   - SYSTEM_ADMIN / CITY_ADMIN / LEADER: any level (City / Sub-City / Woreda / Team)
-//   - SUBCITY_ADMIN: Sub-City / Woreda / Team — within their sub-city only (no City-level plans)
-//   - WOREDA_ADMIN: Woreda / Team — within their woreda only (no City / Sub-City plans)
+//   - SUBCITY_ADMIN: Sub-City or Woreda level — within their sub-city only (no City, no Team)
+//   - WOREDA_ADMIN: Woreda or Team — within their woreda only (no City / Sub-City)
 //   - TEAM_LEAD: Team only — their team
 export async function POST(req: NextRequest) {
   const user = await getSession()
@@ -124,12 +124,19 @@ export async function POST(req: NextRequest) {
     // SUBCITY_ADMIN cannot create City-level plans (downward only)
     if (!hasSubCity && !hasWoreda && !hasTeam) {
       return NextResponse.json(
-        { error: 'As a Sub-City Admin, you can only create plans at Sub-City, Woreda, or Team level — not City level.' },
+        { error: 'As a Sub-City Admin, you can only create plans at Sub-City or Woreda level — not City level.' },
+        { status: 403 }
+      )
+    }
+    // SUBCITY_ADMIN cannot create Team-level plans — only Sub-City and Woreda levels
+    if (hasTeam) {
+      return NextResponse.json(
+        { error: 'As a Sub-City Admin, you can only create plans at Sub-City or Woreda level — not Team level.' },
         { status: 403 }
       )
     }
     // Force subCityId to their sub-city at sub-city level
-    if (hasSubCity && !hasWoreda && !hasTeam) {
+    if (hasSubCity && !hasWoreda) {
       finalSubCityId = user.assignedSubCityId
     }
     // If woreda provided, verify it belongs to their sub-city
@@ -145,29 +152,6 @@ export async function POST(req: NextRequest) {
         )
       }
       finalSubCityId = woreda.subCityId
-    }
-    // If team provided, verify it belongs to their sub-city (direct or via woreda)
-    if (finalTeamId) {
-      const team = await db.team.findUnique({
-        where: { id: finalTeamId },
-        select: { subCityId: true, woredaId: true },
-      })
-      if (!team) {
-        return NextResponse.json({ error: 'Team not found.' }, { status: 400 })
-      }
-      const teamSubCityId = team.subCityId || (
-        team.woredaId
-          ? (await db.woreda.findUnique({ where: { id: team.woredaId }, select: { subCityId: true } }))?.subCityId
-          : null
-      )
-      if (!teamSubCityId || teamSubCityId !== user.assignedSubCityId) {
-        return NextResponse.json(
-          { error: 'You can only create plans for teams within your assigned sub-city.' },
-          { status: 403 }
-        )
-      }
-      finalSubCityId = teamSubCityId
-      finalWoredaId = team.woredaId || null
     }
   }
 

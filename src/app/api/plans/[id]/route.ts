@@ -41,21 +41,12 @@ async function verifyPlanOwnership(
       }
       return null
     }
-    // Team level: verify team is in their sub-city
+    // Team level — Sub-City Admin cannot modify (only Sub-City and Woreda levels allowed)
     if (plan.teamId) {
-      const team = await db.team.findUnique({
-        where: { id: plan.teamId },
-        select: { subCityId: true, woredaId: true },
-      })
-      const teamSubCityId = team?.subCityId || (
-        team?.woredaId
-          ? (await db.woreda.findUnique({ where: { id: team.woredaId }, select: { subCityId: true } }))?.subCityId
-          : null
+      return NextResponse.json(
+        { error: 'As a Sub-City Admin, you can only modify Sub-City or Woreda level plans — not Team level.' },
+        { status: 403 }
       )
-      if (!teamSubCityId || teamSubCityId !== user.assignedSubCityId) {
-        return NextResponse.json({ error: 'This plan belongs to a team outside your sub-city.' }, { status: 403 })
-      }
-      return null
     }
     // City-level plan — Sub-City Admin cannot edit
     return NextResponse.json(
@@ -138,7 +129,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
   let finalTeamId = teamId
 
   if (user.role === 'SUBCITY_ADMIN' && user.assignedSubCityId) {
-    if (finalSubCityId !== undefined && finalSubCityId && !finalWoredaId && !finalTeamId) {
+    // SUBCITY_ADMIN cannot set teamId on a plan — only Sub-City and Woreda levels
+    if (finalTeamId) {
+      return NextResponse.json(
+        { error: 'As a Sub-City Admin, you can only set plans at Sub-City or Woreda level — not Team level.' },
+        { status: 403 }
+      )
+    }
+    if (finalSubCityId !== undefined && finalSubCityId && !finalWoredaId) {
       finalSubCityId = user.assignedSubCityId
     }
   }

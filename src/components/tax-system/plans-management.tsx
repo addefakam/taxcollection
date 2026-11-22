@@ -173,7 +173,7 @@ export function PlansManagement() {
 
   // ---- Role-based level availability (DOWNWARD ONLY) ----
   // City-wide roles: all 4 levels.
-  // SUBCITY_ADMIN: their sub-city + levels below (Woreda, Team) — NOT City.
+  // SUBCITY_ADMIN: Sub-City level + Woreda level (within their sub-city) — NOT City, NOT Team.
   // WOREDA_ADMIN: their woreda + levels below (Team) — NOT City or Sub-City.
   // TEAM_LEAD: Team level only (their team).
   // Other roles: no create access.
@@ -193,10 +193,10 @@ export function PlansManagement() {
       ]
     }
     if (role === 'SUBCITY_ADMIN') {
+      // Sub-City Admin can only set plans at Sub-City and Woreda levels (within their sub-city)
       return [
         { value: 'SUBCITY', label: 'Sub-City Level' },
         { value: 'WOREDA', label: 'Woreda Level' },
-        { value: 'TEAM', label: 'Team Level' },
       ]
     }
     if (role === 'WOREDA_ADMIN') {
@@ -605,7 +605,7 @@ export function PlansManagement() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {role === 'SUBCITY_ADMIN' && 'You can create plans at Sub-City, Woreda, or Team level — within your sub-city only.'}
+                {role === 'SUBCITY_ADMIN' && 'You can create plans at Sub-City or Woreda level — within your sub-city only.'}
                 {role === 'WOREDA_ADMIN' && 'You can create plans at Woreda or Team level — within your woreda only.'}
                 {role === 'TEAM_LEAD' && 'You can create plans only for your team.'}
                 {cityWideRoles.includes(role) && 'You can create plans at City, Sub-City, Woreda, or Team level — anywhere in the system.'}
