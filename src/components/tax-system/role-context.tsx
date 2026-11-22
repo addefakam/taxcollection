@@ -9,6 +9,12 @@ interface RoleCtx {
   role: Role
   staffId: string
   staffName: string
+  assignedSubCityId?: string | null
+  assignedSubCityName?: string | null
+  assignedWoredaId?: string | null
+  assignedWoredaName?: string | null
+  teamId?: string | null
+  teamName?: string | null
 }
 
 const Ctx = createContext<RoleCtx | null>(null)
@@ -27,6 +33,12 @@ export function RoleProvider({
         role: user.role,
         staffId: user.id,
         staffName: user.fullName,
+        assignedSubCityId: user.assignedSubCityId,
+        assignedSubCityName: user.assignedSubCityName,
+        assignedWoredaId: user.assignedWoredaId,
+        assignedWoredaName: user.assignedWoredaName,
+        teamId: user.teamId,
+        teamName: user.teamName,
       }}
     >
       {children}

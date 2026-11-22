@@ -41,6 +41,12 @@ export interface SessionUser {
   fullName: string
   email: string
   role: Role
+  assignedSubCityId?: string | null
+  assignedSubCityName?: string | null
+  assignedWoredaId?: string | null
+  assignedWoredaName?: string | null
+  teamId?: string | null
+  teamName?: string | null
 }
 
 type Tab =
