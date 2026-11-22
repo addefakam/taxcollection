@@ -113,7 +113,6 @@ export async function POST(req: NextRequest) {
   }
 
   // For SUBCITY_ADMIN: if no specific ID was provided, auto-assign to their sub-city
-  // This handles the case where the UI sends subCityId: null but the intent is sub-city level
   if (user.role === 'SUBCITY_ADMIN' && level === 'CITY' && user.assignedSubCityId) {
     level = 'SUBCITY'
     targetSubCityId = user.assignedSubCityId
@@ -123,6 +122,42 @@ export async function POST(req: NextRequest) {
   if (user.role === 'WOREDA_ADMIN' && level === 'CITY' && user.assignedWoredaId) {
     level = 'WOREDA'
     targetWoredaId = user.assignedWoredaId
+  }
+
+  // If a team is assigned to this target (teamId provided at ANY level),
+  // verify the team's hierarchy is at or above the target's level (downward only).
+  // A sub-city level team CAN be assigned to a woreda/team target (downward).
+  // A woreda level team CANNOT be assigned to a sub-city target (upward).
+  if (teamId) {
+    const assignedTeam = await db.team.findUnique({
+      where: { id: teamId },
+      select: { subCityId: true, woredaId: true },
+    })
+    if (!assignedTeam) {
+      return NextResponse.json({ error: 'Assigned team not found.' }, { status: 400 })
+    }
+
+    // Determine the team's hierarchy level
+    const teamLevel = assignedTeam.woredaId
+      ? 'WOREDA'  // team belongs to a woreda
+      : assignedTeam.subCityId
+        ? 'SUBCITY'  // team belongs to a sub-city (no woreda)
+        : 'CITY'  // team has no sub-city or woreda (city-level team)
+
+    // Hierarchy order: CITY(0) > SUBCITY(1) > WOREDA(2) > TEAM(3)
+    const levelOrder: Record<string, number> = { CITY: 0, SUBCITY: 1, WOREDA: 2, TEAM: 3 }
+
+    // Team level must be <= target level (team is higher or equal in hierarchy)
+    // i.e., a SUBCITY team (1) can be assigned to a WOREDA target (2) — downward
+    // but a WOREDA team (2) CANNOT be assigned to a SUBCITY target (1) — upward
+    if (levelOrder[teamLevel] > levelOrder[level]) {
+      return NextResponse.json(
+        {
+          error: `Cannot assign a ${teamLevel.toLowerCase()}-level team to a ${level.toLowerCase()}-level target. Teams can only be assigned downward (higher level → lower level), not upward.`,
+        },
+        { status: 403 }
+      )
+    }
   }
 
   // Enforce hierarchical scoping:

@@ -183,6 +183,9 @@ export function TeamsManagement() {
                       {!t.active && <Badge variant="secondary" className="text-[10px]">Inactive</Badge>}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {t.subCity && !t.woreda && <span>Level: Sub-City</span>}
+                      {t.woreda && <span>Level: Woreda</span>}
+                      {!t.subCity && !t.woreda && <span>Level: City</span>}
                       {t.subCity && <span>Sub-City: {t.subCity.name}</span>}
                       {t.woreda && <span>Woreda: {t.woreda.name}</span>}
                       {t.lead && <span className="flex items-center gap-1"><UserCog className="h-3 w-3" /> Lead: {t.lead.fullName}</span>}
