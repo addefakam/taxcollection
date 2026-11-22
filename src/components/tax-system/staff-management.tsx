@@ -113,6 +113,8 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
   const { toast } = useToast()
   const [list, setList] = useState<StaffMember[]>([])
   const [woredas, setWoredas] = useState<Woreda[]>([])
+  const [subCities, setSubCities] = useState<{ id: string; name: string }[]>([])
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [showOnlyCollectors, setShowOnlyCollectors] = useState(false)
 
@@ -146,6 +148,14 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
     fetch('/api/woredas')
       .then((r) => r.json())
       .then((d) => setWoredas(d))
+      .catch(() => {})
+    fetch('/api/sub-cities')
+      .then((r) => r.json())
+      .then((d) => setSubCities(d))
+      .catch(() => {})
+    fetch('/api/teams')
+      .then((r) => r.json())
+      .then((d) => setTeams(d))
       .catch(() => {})
   }, [])
 
@@ -186,11 +196,27 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
       })
       return
     }
-    // Validate that DATA_COLLECTOR has an assigned woreda
+    // Validate hierarchical scoping based on role
+    if (form.role === 'SUBCITY_ADMIN' && (form.assignedSubCityId === 'NONE' || !form.assignedSubCityId)) {
+      toast({
+        title: 'Missing sub-city',
+        description: 'Sub-City Admin must be assigned to a sub-city.',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (form.role === 'WOREDA_ADMIN' && (form.assignedWoredaId === 'NONE' || !form.assignedWoredaId)) {
+      toast({
+        title: 'Missing woreda',
+        description: 'Woreda Admin must be assigned to a woreda.',
+        variant: 'destructive',
+      })
+      return
+    }
     if (form.role === 'DATA_COLLECTOR' && (form.assignedWoredaId === 'NONE' || !form.assignedWoredaId)) {
       toast({
         title: 'Missing woreda',
-        description: 'Data Collectors (Galmeewwan) must be assigned to a woreda.',
+        description: 'Data Collector must be assigned to a woreda.',
         variant: 'destructive',
       })
       return
@@ -542,10 +568,36 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                 </div>
               </div>
 
-              {/* Woreda selector — only visible when role is DATA_COLLECTOR */}
-              {form.role === 'DATA_COLLECTOR' && (
+              {/* Sub-City selector — visible for SUBCITY_ADMIN */}
+              {form.role === 'SUBCITY_ADMIN' && (
                 <div className="space-y-1.5">
-                  <Label>Assigned Woreda (Sub-city) *</Label>
+                  <Label>Assigned Sub-City *</Label>
+                  <Select
+                    value={form.assignedSubCityId}
+                    onValueChange={(v) => setForm({ ...form, assignedSubCityId: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a sub-city..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">— Select a sub-city —</SelectItem>
+                      {subCities.map((sc) => (
+                        <SelectItem key={sc.id} value={sc.id}>
+                          {sc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The Sub-City Admin will manage only this sub-city and its woredas.
+                  </p>
+                </div>
+              )}
+
+              {/* Woreda selector — visible for WOREDA_ADMIN and DATA_COLLECTOR */}
+              {(form.role === 'WOREDA_ADMIN' || form.role === 'DATA_COLLECTOR') && (
+                <div className="space-y-1.5">
+                  <Label>Assigned Woreda *</Label>
                   <Select
                     value={form.assignedWoredaId}
                     onValueChange={(v) => setForm({ ...form, assignedWoredaId: v })}
@@ -563,8 +615,37 @@ export function StaffManagement({ currentUser }: { currentUser: SessionUser }) {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    The Data Collector will only see taxpayers and assignments
-                    in this woreda. They cannot view or create data for other woredas.
+                    {form.role === 'WOREDA_ADMIN'
+                      ? 'The Woreda Admin will manage only this woreda — taxpayers, teams, and tax collection.'
+                      : 'The Data Collector will only see taxpayers and assignments in this woreda.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Team selector — visible for TEAM_LEAD and TEAM_MEMBER */}
+              {(form.role === 'TEAM_LEAD' || form.role === 'TEAM_MEMBER') && (
+                <div className="space-y-1.5">
+                  <Label>Assigned Team *</Label>
+                  <Select
+                    value={form.teamId}
+                    onValueChange={(v) => setForm({ ...form, teamId: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a team..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">— Select a team —</SelectItem>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {form.role === 'TEAM_LEAD'
+                      ? 'The Team Lead will manage this team and its assigned activities.'
+                      : 'The Team Member will participate in this team collection activities.'}
                   </p>
                 </div>
               )}
