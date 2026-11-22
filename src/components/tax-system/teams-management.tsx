@@ -15,6 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
+import { useRole } from './role-context'
 import { Users, Plus, Pencil, Trash2, UserCog } from 'lucide-react'
 
 interface Team {
@@ -33,6 +34,7 @@ const emptyForm = { name: '', description: '', woredaId: '', subCityId: '', lead
 
 export function TeamsManagement() {
   const { toast } = useToast()
+  const { role, assignedSubCityId, assignedWoredaId } = useRole()
   const [teams, setTeams] = useState<Team[]>([])
   const [staff, setStaff] = useState<StaffOption[]>([])
   const [woredas, setWoredas] = useState<WoredaOption[]>([])
@@ -57,25 +59,85 @@ export function TeamsManagement() {
 
   useEffect(() => { load() }, [load])
 
-  const openCreate = () => { setForm(emptyForm); setEditing(null); setOpen(true) }
+  // Filter woredas based on role scope
+  const scopedWoredas = role === 'SUBCITY_ADMIN' && assignedSubCityId
+    ? woredas.filter(w => {
+        // Find the sub-city name for the assigned sub-city
+        const scName = subCities.find(sc => sc.id === assignedSubCityId)?.name
+        return w.subCity?.name === scName
+      })
+    : role === 'WOREDA_ADMIN' && assignedWoredaId
+      ? woredas.filter(w => w.id === assignedWoredaId)
+      : woredas
+
+  // Filter sub-cities based on role scope
+  const scopedSubCities = role === 'SUBCITY_ADMIN' && assignedSubCityId
+    ? subCities.filter(sc => sc.id === assignedSubCityId)
+    : subCities
+
+  const openCreate = () => {
+    setForm({
+      ...emptyForm,
+      // Pre-fill for SUBCITY_ADMIN
+      subCityId: role === 'SUBCITY_ADMIN' && assignedSubCityId ? assignedSubCityId : '',
+      // Pre-fill for WOREDA_ADMIN
+      woredaId: role === 'WOREDA_ADMIN' && assignedWoredaId ? assignedWoredaId : '',
+    })
+    setEditing(null)
+    setOpen(true)
+  }
+
   const openEdit = (t: Team) => {
     setEditing(t)
-    setForm({ name: t.name, description: t.description || '', woredaId: t.woredaId || '', subCityId: t.subCityId || '', leadStaffId: t.leadStaffId || '' })
+    setForm({
+      name: t.name,
+      description: t.description || '',
+      woredaId: t.woredaId || '',
+      subCityId: t.subCityId || '',
+      leadStaffId: t.leadStaffId || '',
+    })
     setOpen(true)
   }
 
   const save = async () => {
-    if (!form.name) { toast({ title: 'Missing field', description: 'Name is required.', variant: 'destructive' }); return }
+    if (!form.name) {
+      toast({ title: 'Missing', description: 'Name is required.', variant: 'destructive' })
+      return
+    }
     setSaving(true)
     try {
-      const res = await fetch(editing ? `/api/teams/${editing.id}` : '/api/teams', {
-        method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name, description: form.description || null,
-          woredaId: form.woredaId || null, subCityId: form.subCityId || null,
-          leadStaffId: form.leadStaffId || null,
-        }),
-      })
+      const payload: Record<string, unknown> = {
+        name: form.name,
+        description: form.description || null,
+        leadStaffId: form.leadStaffId || null,
+      }
+
+      // Sub-City: for SUBCITY_ADMIN, force to their assigned sub-city
+      if (role === 'SUBCITY_ADMIN' && assignedSubCityId) {
+        payload.subCityId = assignedSubCityId
+      } else if (form.subCityId) {
+        payload.subCityId = form.subCityId
+      } else {
+        payload.subCityId = null
+      }
+
+      // Woreda: for WOREDA_ADMIN, force to their assigned woreda
+      if (role === 'WOREDA_ADMIN' && assignedWoredaId) {
+        payload.woredaId = assignedWoredaId
+      } else if (form.woredaId) {
+        payload.woredaId = form.woredaId
+      } else {
+        payload.woredaId = null
+      }
+
+      const res = await fetch(
+        editing ? `/api/teams/${editing.id}` : '/api/teams',
+        {
+          method: editing ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
       toast({ title: editing ? 'Team updated' : 'Team created', description: form.name })
@@ -147,29 +209,36 @@ export function TeamsManagement() {
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-1.5">
-              <Label>Name *</Label>
+              <Label>Team Name *</Label>
               <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Team A - Business Tax" />
             </div>
-            <div className="space-y-1.5">
-              <Label>Sub-City</Label>
-              <Select value={form.subCityId || 'NONE'} onValueChange={v => setForm({...form, subCityId: v === 'NONE' ? '' : v})}>
-                <SelectTrigger><SelectValue placeholder="Select sub-city..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">— None —</SelectItem>
-                  {subCities.map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Woreda</Label>
-              <Select value={form.woredaId || 'NONE'} onValueChange={v => setForm({...form, woredaId: v === 'NONE' ? '' : v})}>
-                <SelectTrigger><SelectValue placeholder="Select woreda..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">— None —</SelectItem>
-                  {woredas.map(w => <SelectItem key={w.id} value={w.id}>{w.name}{w.subCity ? ` (${w.subCity.name})` : ''}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Sub-City — hidden for SUBCITY_ADMIN (auto-assigned), locked for WOREDA_ADMIN (not applicable) */}
+            {role !== 'SUBCITY_ADMIN' && role !== 'WOREDA_ADMIN' && (
+              <div className="space-y-1.5">
+                <Label>Sub-City</Label>
+                <Select value={form.subCityId || 'NONE'} onValueChange={v => setForm({...form, subCityId: v === 'NONE' ? '' : v})}>
+                  <SelectTrigger><SelectValue placeholder="Select sub-city..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">— None —</SelectItem>
+                    {scopedSubCities.map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {/* Woreda — hidden for WOREDA_ADMIN (auto-assigned), filtered for SUBCITY_ADMIN */}
+            {role !== 'WOREDA_ADMIN' && (
+              <div className="space-y-1.5">
+                <Label>Woreda</Label>
+                <Select value={form.woredaId || 'NONE'} onValueChange={v => setForm({...form, woredaId: v === 'NONE' ? '' : v})}>
+                  <SelectTrigger><SelectValue placeholder="Select woreda..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">— None —</SelectItem>
+                    {scopedWoredas.map(w => <SelectItem key={w.id} value={w.id}>{w.name}{w.subCity ? ` (${w.subCity.name})` : ''}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {role === 'SUBCITY_ADMIN' && <p className="text-xs text-muted-foreground">Only woredas in your sub-city are shown.</p>}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Team Lead</Label>
               <Select value={form.leadStaffId || 'NONE'} onValueChange={v => setForm({...form, leadStaffId: v === 'NONE' ? '' : v})}>
