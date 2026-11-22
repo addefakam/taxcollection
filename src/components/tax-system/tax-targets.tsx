@@ -300,23 +300,18 @@ export function TaxTargets() {
                 <SelectContent>{TAX_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            {form.level === 'SUBCITY' && (
+            {form.level === 'SUBCITY' && role !== 'SUBCITY_ADMIN' && (
               <div className="space-y-1.5">
                 <Label>Sub-City *</Label>
                 <Select
                   value={form.subCityId}
                   onValueChange={v => setForm({...form, subCityId: v})}
-                  disabled={role === 'SUBCITY_ADMIN'}
                 >
                   <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
-                    {role === 'SUBCITY_ADMIN' && assignedSubCityId
-                      ? subCities.filter(sc => sc.id === assignedSubCityId).map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)
-                      : subCities.map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)
-                    }
+                    {subCities.map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {role === 'SUBCITY_ADMIN' && <p className="text-xs text-muted-foreground">Locked to your assigned sub-city.</p>}
               </div>
             )}
             {form.level === 'WOREDA' && (
