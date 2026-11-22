@@ -89,7 +89,7 @@ const TABS: Array<{
     key: 'woredas',
     label: 'Sub-Cities',
     icon: Layers,
-    visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN', 'SUBCITY_ADMIN'],
+    visibleTo: ['LEADER', 'SYSTEM_ADMIN', 'CITY_ADMIN'],
   },
   {
     key: 'teams',
