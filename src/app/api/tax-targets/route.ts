@@ -112,6 +112,83 @@ export async function POST(req: NextRequest) {
     targetSubCityId = subCityId
   }
 
+  // Enforce hierarchical scoping:
+  // - SUBCITY_ADMIN can only set targets for their own sub-city or woredas/teams under it
+  // - WOREDA_ADMIN can only set targets for their own woreda or teams under it
+  if (user.role === 'SUBCITY_ADMIN') {
+    if (!user.assignedSubCityId) {
+      return NextResponse.json({ error: 'Your account is not assigned to a sub-city.' }, { status: 403 })
+    }
+    // Force subCityId to be their sub-city
+    // If they're setting a woreda target, verify the woreda belongs to their sub-city
+    if (level === 'CITY') {
+      return NextResponse.json(
+        { error: 'Sub-City Admin can only set targets for their own sub-city or its woredas/teams, not city-wide targets.' },
+        { status: 403 }
+      )
+    }
+    if (level === 'SUBCITY') {
+      // Force to their own sub-city
+      targetSubCityId = user.assignedSubCityId
+    }
+    if (level === 'WOREDA' && targetWoredaId) {
+      // Verify the woreda belongs to their sub-city
+      const woreda = await db.woreda.findUnique({
+        where: { id: targetWoredaId },
+        select: { subCityId: true },
+      })
+      if (!woreda || woreda.subCityId !== user.assignedSubCityId) {
+        return NextResponse.json(
+          { error: 'You can only set targets for woredas within your assigned sub-city.' },
+          { status: 403 }
+        )
+      }
+    }
+    if (level === 'TEAM' && targetTeamId) {
+      // Verify the team belongs to a woreda in their sub-city
+      const team = await db.team.findUnique({
+        where: { id: targetTeamId },
+        select: { woreda: { select: { subCityId: true } }, subCityId: true },
+      })
+      const teamSubCityId = team?.subCityId || team?.woreda?.subCityId
+      if (teamSubCityId !== user.assignedSubCityId) {
+        return NextResponse.json(
+          { error: 'You can only set targets for teams within your assigned sub-city.' },
+          { status: 403 }
+        )
+      }
+    }
+  }
+
+  if (user.role === 'WOREDA_ADMIN') {
+    if (!user.assignedWoredaId) {
+      return NextResponse.json({ error: 'Your account is not assigned to a woreda.' }, { status: 403 })
+    }
+    if (level === 'CITY' || level === 'SUBCITY') {
+      return NextResponse.json(
+        { error: 'Woreda Admin can only set targets for their own woreda or its teams.' },
+        { status: 403 }
+      )
+    }
+    if (level === 'WOREDA') {
+      // Force to their own woreda
+      targetWoredaId = user.assignedWoredaId
+    }
+    if (level === 'TEAM' && targetTeamId) {
+      // Verify the team belongs to their woreda
+      const team = await db.team.findUnique({
+        where: { id: targetTeamId },
+        select: { woredaId: true },
+      })
+      if (team?.woredaId !== user.assignedWoredaId) {
+        return NextResponse.json(
+          { error: 'You can only set targets for teams within your assigned woreda.' },
+          { status: 403 }
+        )
+      }
+    }
+  }
+
   // Check for existing target at this level + category + fiscal year
   const existing = await db.yearlyTaxTarget.findFirst({
     where: {
