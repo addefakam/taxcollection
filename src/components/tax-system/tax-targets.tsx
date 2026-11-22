@@ -303,10 +303,20 @@ export function TaxTargets() {
             {form.level === 'SUBCITY' && (
               <div className="space-y-1.5">
                 <Label>Sub-City *</Label>
-                <Select value={form.subCityId} onValueChange={v => setForm({...form, subCityId: v})}>
+                <Select
+                  value={form.subCityId}
+                  onValueChange={v => setForm({...form, subCityId: v})}
+                  disabled={role === 'SUBCITY_ADMIN'}
+                >
                   <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>{subCities.map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {role === 'SUBCITY_ADMIN' && assignedSubCityId
+                      ? subCities.filter(sc => sc.id === assignedSubCityId).map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)
+                      : subCities.map(sc => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)
+                    }
+                  </SelectContent>
                 </Select>
+                {role === 'SUBCITY_ADMIN' && <p className="text-xs text-muted-foreground">Locked to your assigned sub-city.</p>}
               </div>
             )}
             {form.level === 'WOREDA' && (
@@ -314,8 +324,16 @@ export function TaxTargets() {
                 <Label>Woreda *</Label>
                 <Select value={form.woredaId} onValueChange={v => setForm({...form, woredaId: v})}>
                   <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>{woredas.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {role === 'SUBCITY_ADMIN'
+                      ? woredas.filter(w => w.subCity?.name === subCities.find(sc => sc.id === assignedSubCityId)?.name).map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)
+                      : role === 'WOREDA_ADMIN' && assignedWoredaId
+                        ? woredas.filter(w => w.id === assignedWoredaId).map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)
+                        : woredas.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)
+                    }
+                  </SelectContent>
                 </Select>
+                {role === 'WOREDA_ADMIN' && <p className="text-xs text-muted-foreground">Locked to your assigned woreda.</p>}
               </div>
             )}
             {form.level === 'TEAM' && (
