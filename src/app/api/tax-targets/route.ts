@@ -112,6 +112,19 @@ export async function POST(req: NextRequest) {
     targetSubCityId = subCityId
   }
 
+  // For SUBCITY_ADMIN: if no specific ID was provided, auto-assign to their sub-city
+  // This handles the case where the UI sends subCityId: null but the intent is sub-city level
+  if (user.role === 'SUBCITY_ADMIN' && level === 'CITY' && user.assignedSubCityId) {
+    level = 'SUBCITY'
+    targetSubCityId = user.assignedSubCityId
+  }
+
+  // For WOREDA_ADMIN: if no specific ID was provided, auto-assign to their woreda
+  if (user.role === 'WOREDA_ADMIN' && level === 'CITY' && user.assignedWoredaId) {
+    level = 'WOREDA'
+    targetWoredaId = user.assignedWoredaId
+  }
+
   // Enforce hierarchical scoping:
   // - SUBCITY_ADMIN can only set targets for their own sub-city or woredas/teams under it
   // - WOREDA_ADMIN can only set targets for their own woreda or teams under it
