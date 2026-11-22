@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
+import { useRole } from './role-context'
 import { TAX_CATEGORIES, FISCAL_YEARS, fmtETB, categoryLabel } from './lib'
 import { Target, Plus, Pencil, Trash2, Building2, AlertCircle, CheckCircle2, Layers } from 'lucide-react'
 
@@ -51,6 +52,21 @@ const LEVELS = [
   { value: 'TEAM', label: 'Team' },
 ]
 
+// Compute which levels a role can use
+function getAvailableLevels(role: string): typeof LEVELS {
+  const cityWideRoles = ['SYSTEM_ADMIN', 'CITY_ADMIN', 'LEADER', 'CITY_REVENUE_OFFICER']
+  if (cityWideRoles.includes(role)) {
+    return LEVELS // all levels
+  }
+  if (role === 'SUBCITY_ADMIN') {
+    return LEVELS.filter(l => l.value !== 'CITY') // no city-wide
+  }
+  if (role === 'WOREDA_ADMIN') {
+    return LEVELS.filter(l => l.value === 'WOREDA' || l.value === 'TEAM') // only woreda + team
+  }
+  return LEVELS.filter(l => l.value === 'TEAM') // team lead/member: only team
+}
+
 const LEVEL_TONE: Record<string, string> = {
   CITY: 'bg-indigo-100 text-indigo-700',
   SUBCITY: 'bg-teal-100 text-teal-700',
@@ -71,6 +87,7 @@ const emptyForm = {
 
 export function TaxTargets() {
   const { toast } = useToast()
+  const { role, assignedSubCityId, assignedWoredaId } = useRole()
   const [targets, setTargets] = useState<TaxTarget[]>([])
   const [reconciliation, setReconciliation] = useState<ReconciliationItem[]>([])
   const [subCities, setSubCities] = useState<SubCityOption[]>([])
@@ -101,7 +118,18 @@ export function TaxTargets() {
 
   useEffect(() => { load() }, [load])
 
-  const openCreate = () => { setForm({ ...emptyForm, fiscalYear }); setEditing(null); setOpen(true) }
+  const availableLevels = getAvailableLevels(role)
+
+  const openCreate = () => {
+    // Set default level to the first available level for this role
+    const defaultLevel = availableLevels[0]?.value || 'CITY'
+    setForm({ ...emptyForm, fiscalYear, level: defaultLevel,
+      subCityId: role === 'SUBCITY_ADMIN' && assignedSubCityId ? assignedSubCityId : 'NONE',
+      woredaId: role === 'WOREDA_ADMIN' && assignedWoredaId ? assignedWoredaId : 'NONE',
+    })
+    setEditing(null)
+    setOpen(true)
+  }
   const openEdit = (t: TaxTarget) => {
     setEditing(t)
     setForm({
@@ -169,7 +197,7 @@ export function TaxTargets() {
       </div>
 
       {/* Reconciliation summary */}
-      {reconciliation.length > 0 && (
+      {reconciliation.length > 0 && role !== 'SUBCITY_ADMIN' && role !== 'WOREDA_ADMIN' && (
         <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />Reconciliation: City vs Sub-City</CardTitle></CardHeader>
           <CardContent className="space-y-2">
@@ -199,7 +227,7 @@ export function TaxTargets() {
         <Card><CardContent className="p-8 text-center"><Target className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" /><p className="text-sm text-muted-foreground">No targets for {fiscalYear}. Click &quot;Add Target&quot;.</p></CardContent></Card>
       ) : (
         <div className="space-y-4">
-          {LEVELS.map(lvl => {
+          {availableLevels.map(lvl => {
             const items = grouped[lvl.value]
             if (!items || items.length === 0) return null
             return (
@@ -261,7 +289,7 @@ export function TaxTargets() {
                 <Label>Level</Label>
                 <Select value={form.level} onValueChange={v => setForm({...form, level: v, subCityId: 'NONE', woredaId: 'NONE', teamId: 'NONE'})} disabled={!!editing}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{LEVELS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>{availableLevels.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
