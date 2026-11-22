@@ -148,8 +148,16 @@ export function TaxTargets() {
         fiscalYear: form.fiscalYear, category: form.category,
         expectedAmount: Number(form.expectedAmount), notes: form.notes || null,
       }
-      if (form.level === 'SUBCITY') payload.subCityId = form.subCityId !== 'NONE' ? form.subCityId : null
-      if (form.level === 'WOREDA') payload.woredaId = form.woredaId !== 'NONE' ? form.woredaId : null
+      // For SUBCITY level: use form.subCityId, or fall back to assignedSubCityId for SUBCITY_ADMIN
+      if (form.level === 'SUBCITY') {
+        const scId = form.subCityId !== 'NONE' ? form.subCityId : (role === 'SUBCITY_ADMIN' && assignedSubCityId ? assignedSubCityId : null)
+        payload.subCityId = scId
+      }
+      // For WOREDA level: use form.woredaId, or fall back to assignedWoredaId for WOREDA_ADMIN
+      if (form.level === 'WOREDA') {
+        const wId = form.woredaId !== 'NONE' ? form.woredaId : (role === 'WOREDA_ADMIN' && assignedWoredaId ? assignedWoredaId : null)
+        payload.woredaId = wId
+      }
       if (form.level === 'TEAM') payload.teamId = form.teamId !== 'NONE' ? form.teamId : null
 
       const res = await fetch(editing ? `/api/tax-targets/${editing.id}` : '/api/tax-targets', {
@@ -287,7 +295,15 @@ export function TaxTargets() {
               </div>
               <div className="space-y-1.5">
                 <Label>Level</Label>
-                <Select value={form.level} onValueChange={v => setForm({...form, level: v, subCityId: 'NONE', woredaId: 'NONE', teamId: 'NONE'})} disabled={!!editing}>
+                <Select value={form.level} onValueChange={v => setForm({
+                  ...form,
+                  level: v,
+                  // For SUBCITY_ADMIN, keep their assigned sub-city when level is SUBCITY
+                  subCityId: v === 'SUBCITY' && role === 'SUBCITY_ADMIN' && assignedSubCityId ? assignedSubCityId : 'NONE',
+                  // For WOREDA_ADMIN, keep their assigned woreda when level is WOREDA
+                  woredaId: v === 'WOREDA' && role === 'WOREDA_ADMIN' && assignedWoredaId ? assignedWoredaId : 'NONE',
+                  teamId: 'NONE',
+                })} disabled={!!editing}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{availableLevels.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                 </Select>
