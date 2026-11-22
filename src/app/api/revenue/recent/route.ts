@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { getVisibleWoredaIds } from '@/lib/scoping'
 
 // GET /api/revenue/recent?limit=20
 // Returns the most recently collected taxes (COMPLETED with paymentDate)
+// Hierarchical scoping: users only see collections within their admin unit.
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -11,10 +13,18 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
 
+  // Get hierarchical scope
+  const visibleWoredaIds = await getVisibleWoredaIds()
+  const woredaFilter =
+    visibleWoredaIds === null
+      ? {} // city-wide: no filter
+      : { taxPayer: { woredaId: { in: visibleWoredaIds } } }
+
   const recent = await db.taxAssignment.findMany({
     where: {
       status: 'COMPLETED',
       paymentDate: { not: null },
+      ...woredaFilter,
     },
     orderBy: { paymentDate: 'desc' },
     take: limit,
@@ -33,7 +43,7 @@ export async function GET(req: NextRequest) {
           tin: true,
           fullName: true,
           category: true,
-          woreda: { select: { code: true, name: true } },
+          woreda: { select: { name: true } },
         },
       },
     },

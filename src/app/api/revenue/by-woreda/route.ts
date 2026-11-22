@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { getVisibleWoredaIds } from '@/lib/scoping'
 import { fiscalYearRange, getAvailableFiscalYears, classifyByCategory } from '@/lib/revenue'
 
 // GET /api/revenue/by-woreda?fiscalYear=2026/2027
 // Returns collection summary per woreda for the given fiscal year
+// Hierarchical scoping: users only see woredas within their admin unit.
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -17,11 +19,24 @@ export async function GET(req: NextRequest) {
   const range = fiscalYearRange(fiscalYear)
   if (!range) return NextResponse.json({ error: 'Invalid fiscalYear' }, { status: 400 })
 
+  // Get hierarchical scope
+  const visibleWoredaIds = await getVisibleWoredaIds()
+  const woredaFilter =
+    visibleWoredaIds === null
+      ? {} // city-wide: see all woredas
+      : { id: { in: visibleWoredaIds } } // scoped: only visible woredas
+
+  const assignWoredaFilter =
+    visibleWoredaIds === null
+      ? {}
+      : { taxPayer: { woredaId: { in: visibleWoredaIds } } }
+
   const [completed, targets, woredas] = await Promise.all([
     db.taxAssignment.findMany({
       where: {
         status: 'COMPLETED',
         paymentDate: { gte: range.start, lt: range.end },
+        ...assignWoredaFilter,
       },
       select: {
         id: true,
@@ -40,7 +55,7 @@ export async function GET(req: NextRequest) {
       },
     }),
     db.yearlyTaxTarget.findMany({ where: { fiscalYear } }),
-    db.woreda.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
+    db.woreda.findMany({ where: { active: true, ...woredaFilter }, orderBy: { name: 'asc' } }),
   ])
 
   // Build per-woreda map

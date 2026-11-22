@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { getVisibleWoredaIds } from '@/lib/scoping'
 import {
   fiscalYearRange,
   getAvailableFiscalYears,
@@ -9,14 +10,7 @@ import {
 } from '@/lib/revenue'
 
 // GET /api/revenue/summary?fiscalYear=2026/2027
-// Returns the city-wide revenue summary:
-//  - expected (yearly target per category, summed)
-//  - collected (sum of paymentAmount for COMPLETED assignments in the fiscal year)
-//  - outstanding (expected - collected)
-//  - counts of completed / pending assignments
-//  - by-category breakdown: { expected, collected, outstanding, count }
-//  - recent daily/weekly/monthly collection totals
-// Any logged-in staff can view (most useful for City Revenue Officer + Leader).
+// Hierarchical scoping: users only see revenue for their admin unit.
 export async function GET(req: NextRequest) {
   const user = await getSession()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
@@ -34,12 +28,47 @@ export async function GET(req: NextRequest) {
   const now = new Date()
   const fyEnd = range.end < now ? range.end : now
 
-  // 1. All COMPLETED assignments within fiscal year (collected)
+  // Get hierarchical scope — visibleWoredaIds is null for city-wide roles,
+  // or an array of woreda IDs for scoped roles
+  const visibleWoredaIds = await getVisibleWoredaIds()
+
+  // Build the assignment filter based on scope
+  // null = no filter (see all), array = filter to these woredas, empty = see nothing
+  const assignWoredaFilter =
+    visibleWoredaIds === null
+      ? {} // city-wide: no filter
+      : { taxPayer: { woredaId: { in: visibleWoredaIds } } }
+
+  // Build the target filter
+  // City-wide roles: see city-level targets
+  // Scoped roles: see targets for their woredas + sub-city-level targets
+  let targetWhere: Record<string, unknown> = { fiscalYear }
+  if (visibleWoredaIds !== null) {
+    if (visibleWoredaIds.length === 0) {
+      // No woredas visible — show nothing
+      targetWhere = { fiscalYear, id: '__none__' }
+    } else {
+      // Show targets for visible woredas + sub-city targets (if sub-city admin)
+      targetWhere = {
+        fiscalYear,
+        OR: [
+          { woredaId: { in: visibleWoredaIds } },
+          // Sub-city admin also sees their sub-city-level targets
+          ...(user.role === 'SUBCITY_ADMIN' && user.assignedSubCityId
+            ? [{ level: 'SUBCITY', subCityId: user.assignedSubCityId }]
+            : []),
+        ],
+      }
+    }
+  }
+
+  // 1. All COMPLETED assignments within fiscal year (collected) — scoped
   const [completed, allAssigned, targets] = await Promise.all([
     db.taxAssignment.findMany({
       where: {
         status: 'COMPLETED',
         paymentDate: { gte: range.start, lt: range.end },
+        ...assignWoredaFilter,
       },
       select: {
         id: true,
@@ -54,6 +83,7 @@ export async function GET(req: NextRequest) {
       where: {
         status: { not: 'CANCELLED' },
         assignedAt: { gte: range.start, lt: range.end },
+        ...assignWoredaFilter,
       },
       select: {
         id: true,
@@ -66,7 +96,7 @@ export async function GET(req: NextRequest) {
       },
     }),
     db.yearlyTaxTarget.findMany({
-      where: { fiscalYear, woredaId: null }, // city-wide targets only
+      where: targetWhere,
     }),
   ])
 
