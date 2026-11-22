@@ -16,6 +16,7 @@ import { Target, Plus, Pencil, Trash2, Building2, AlertCircle, CheckCircle2, Lay
 
 interface TaxTarget {
   id: string
+  name?: string | null
   fiscalYear: string
   level: string
   subCityId?: string | null
@@ -75,6 +76,7 @@ const LEVEL_TONE: Record<string, string> = {
 }
 
 const emptyForm = {
+  name: '',
   fiscalYear: FISCAL_YEARS[1],
   level: 'CITY',
   category: 'BUSINESS',
@@ -133,7 +135,7 @@ export function TaxTargets() {
   const openEdit = (t: TaxTarget) => {
     setEditing(t)
     setForm({
-      fiscalYear: t.fiscalYear, level: t.level, category: t.category,
+      name: t.name || '', fiscalYear: t.fiscalYear, level: t.level, category: t.category,
       expectedAmount: String(t.expectedAmount), notes: t.notes || '',
       subCityId: t.subCityId || 'NONE', woredaId: t.woredaId || 'NONE', teamId: t.teamId || 'NONE',
     })
@@ -145,6 +147,7 @@ export function TaxTargets() {
     setSaving(true)
     try {
       const payload: Record<string, unknown> = {
+        name: form.name || null,
         fiscalYear: form.fiscalYear, category: form.category,
         expectedAmount: Number(form.expectedAmount), notes: form.notes || null,
       }
@@ -158,7 +161,8 @@ export function TaxTargets() {
         const wId = form.woredaId !== 'NONE' ? form.woredaId : (role === 'WOREDA_ADMIN' && assignedWoredaId ? assignedWoredaId : null)
         payload.woredaId = wId
       }
-      if (form.level === 'TEAM') payload.teamId = form.teamId !== 'NONE' ? form.teamId : null
+      // Team can be assigned at any level (optional except TEAM level)
+      payload.teamId = form.teamId !== 'NONE' ? form.teamId : null
 
       const res = await fetch(editing ? `/api/tax-targets/${editing.id}` : '/api/tax-targets', {
         method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
@@ -255,10 +259,13 @@ export function TaxTargets() {
                     {items.map(t => (
                       <div key={t.id} className="p-3 flex items-center justify-between gap-3 hover:bg-muted/30">
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm">{categoryLabel(t.category)}</p>
+                          <p className="font-medium text-sm">{t.name || categoryLabel(t.category)}</p>
                           <p className="text-xs text-muted-foreground">
-                            {t.subCity?.name || ''}{t.woreda?.name ? ` → ${t.woreda.name}` : ''}{t.team?.name ? ` → ${t.team.name}` : ''}
-                            {!t.subCity && !t.woreda && !t.team && 'City-wide'}
+                            {categoryLabel(t.category)}
+                            {t.subCity?.name ? ` · ${t.subCity.name}` : ''}
+                            {t.woreda?.name ? ` → ${t.woreda.name}` : ''}
+                            {t.team?.name ? ` → ${t.team.name}` : ''}
+                            {!t.subCity && !t.woreda && !t.team && ' · City-wide'}
                             {t.notes && ` · ${t.notes}`}
                           </p>
                         </div>
@@ -285,6 +292,10 @@ export function TaxTargets() {
             <DialogDescription>Set a tax collection target at any hierarchy level.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
+            <div className="space-y-1.5">
+              <Label>Target Name</Label>
+              <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Q1 Business Tax - Team A" />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Fiscal Year</Label>
@@ -347,15 +358,17 @@ export function TaxTargets() {
                 {role === 'WOREDA_ADMIN' && <p className="text-xs text-muted-foreground">Locked to your assigned woreda.</p>}
               </div>
             )}
-            {form.level === 'TEAM' && (
-              <div className="space-y-1.5">
-                <Label>Team *</Label>
-                <Select value={form.teamId} onValueChange={v => setForm({...form, teamId: v})}>
-                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* Team selector — available at all levels (optional except TEAM level) */}
+            <div className="space-y-1.5">
+              <Label>Team {form.level === 'TEAM' ? '*' : '(optional)'}</Label>
+              <Select value={form.teamId} onValueChange={v => setForm({...form, teamId: v})}>
+                <SelectTrigger><SelectValue placeholder="Select team..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">— No team —</SelectItem>
+                  {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label>Expected Amount (ETB) *</Label>
               <Input type="number" min="0" step="0.01" value={form.expectedAmount} onChange={e => setForm({...form, expectedAmount: e.target.value})} placeholder="0.00" />

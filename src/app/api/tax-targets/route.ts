@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { fiscalYear, category, expectedAmount, notes, subCityId, woredaId, teamId } = body
+  const { fiscalYear, category, expectedAmount, notes, name, subCityId, woredaId, teamId } = body
 
   if (!fiscalYear || !category || expectedAmount === undefined) {
     return NextResponse.json(
@@ -228,6 +228,7 @@ export async function POST(req: NextRequest) {
   } else {
     target = await db.yearlyTaxTarget.create({
       data: {
+        name: name || null,
         fiscalYear,
         level,
         category,

@@ -300,6 +300,7 @@ model AssignmentHistory {
 // woredaId is nullable: a null woredaId = city-wide target for that category.
 model YearlyTaxTarget {
   id              String   @id @default(cuid())
+  name            String?  // descriptive name for this target (e.g. "Q1 Business Tax - Team A")
   fiscalYear      String   // e.g. "2026/2027"
   // Hierarchy level: CITY (all null), SUBCITY (subCityId set),
   // WOREDA (woredaId set), TEAM (teamId set)

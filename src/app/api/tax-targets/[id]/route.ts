@@ -15,7 +15,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { id } = await params
   const body = await req.json()
-  const { expectedAmount, notes } = body
+  const { expectedAmount, notes, name } = body
 
   if (expectedAmount === undefined) {
     return NextResponse.json({ error: 'expectedAmount is required' }, { status: 400 })
@@ -23,7 +23,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const t = await db.yearlyTaxTarget.update({
     where: { id },
-    data: { expectedAmount: Number(expectedAmount), notes: notes || null },
+    data: { expectedAmount: Number(expectedAmount), notes: notes || null, name: name ?? undefined },
     include: { woreda: { select: { name: true } }, subCity: { select: { name: true } }, team: { select: { name: true } } },
   })
   return NextResponse.json(t)
