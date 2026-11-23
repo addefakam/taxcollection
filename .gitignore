@@ -59,3 +59,6 @@ db/*.db-journal
 
 # Local dev schema (sqlite copy — never commit)
 prisma/schema.dev.prisma
+
+# Tool output scratch files
+tool-results/
