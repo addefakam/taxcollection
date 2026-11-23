@@ -106,9 +106,11 @@ const emptyForm = {
 }
 
 export function TaxPayers() {
-  const { role, staffId, staffName } = useRole()
-  const canEdit = role === 'LEADER' || role === 'TEAM_1_ASSIGNMENT'
+  const { role, staffId, staffName, assignedWoredaId, assignedWoredaName } = useRole()
+  const canEdit = role === 'LEADER' || role === 'TEAM_1_ASSIGNMENT' || role === 'DATA_COLLECTOR' || role === 'SYSTEM_ADMIN'
+  const canDelete = role === 'LEADER' || role === 'TEAM_1_ASSIGNMENT' || role === 'SYSTEM_ADMIN'
   const isLeader = role === 'LEADER'
+  const isDataCollector = role === 'DATA_COLLECTOR'
   const { toast } = useToast()
   const [list, setList] = useState<TaxPayer[]>([])
   const [woredas, setWoredas] = useState<Woreda[]>([])
@@ -149,7 +151,11 @@ export function TaxPayers() {
   }, [])
 
   const openCreate = () => {
-    setForm(emptyForm)
+    setForm({
+      ...emptyForm,
+      // Data Collector: pre-fill woreda with their assigned woreda
+      woredaId: isDataCollector && assignedWoredaId ? assignedWoredaId : '',
+    })
     setEditing(null)
     setCreateOpen(true)
   }
@@ -163,7 +169,8 @@ export function TaxPayers() {
       phone: tp.phone || '',
       email: tp.email || '',
       address: tp.address || '',
-      woredaId: tp.woredaId || '',
+      // Data Collector: force woreda to their assigned woreda (cannot change)
+      woredaId: isDataCollector && assignedWoredaId ? assignedWoredaId : (tp.woredaId || ''),
       kebele: tp.kebele || '',
       tradeLicenseNo: tp.tradeLicenseNo || '',
       contactPerson: tp.contactPerson || '',
@@ -389,22 +396,24 @@ export function TaxPayers() {
                               </Button>
                             )}
                             {canEdit && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => openEdit(tp)}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => deactivate(tp)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                </Button>
-                              </>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEdit(tp)}
+                                title="Edit"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => deactivate(tp)}
+                                title="Deactivate"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -515,22 +524,34 @@ export function TaxPayers() {
             </div>
             <div className="space-y-1.5">
               <Label>Woreda (sub-city)</Label>
-              <Select
-                value={form.woredaId || 'NONE'}
-                onValueChange={(v) => setForm({ ...form, woredaId: v === 'NONE' ? '' : v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select woreda..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">— None —</SelectItem>
-                  {woredas.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {w.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isDataCollector ? (
+                <>
+                  <Input
+                    value={assignedWoredaName || (assignedWoredaId ? woredas.find(w => w.id === assignedWoredaId)?.name || '' : '')}
+                    disabled
+                    className="bg-muted"
+                    placeholder="Your assigned woreda"
+                  />
+                  <p className="text-xs text-muted-foreground">Locked to your assigned woreda.</p>
+                </>
+              ) : (
+                <Select
+                  value={form.woredaId || 'NONE'}
+                  onValueChange={(v) => setForm({ ...form, woredaId: v === 'NONE' ? '' : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select woreda..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">— None —</SelectItem>
+                    {woredas.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {w.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Kebele</Label>
