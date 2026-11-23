@@ -39,6 +39,26 @@ export async function setupDatabase(): Promise<SetupResult> {
     })
   }
 
+  // --- 1b. Seed two demo woredas in "Bishoftu Central" so Data Collector accounts have a scope.
+  // (Admins can still create more woredas from the UI; these two guarantee the seeded
+  // Galmeewwan accounts can actually add/edit taxpayers out of the box.)
+  const bishoftuCentral = await db.subCity.findUnique({ where: { name: 'Bishoftu Central' } })
+  if (bishoftuCentral) {
+    const demoWoredas = [
+      { name: 'Bishoftu Central - Woreda 01', subCityId: bishoftuCentral.id },
+      { name: 'Bishoftu Central - Woreda 02', subCityId: bishoftuCentral.id },
+    ]
+    for (const w of demoWoredas) {
+      const existing = await db.woreda.findUnique({ where: { name: w.name } })
+      if (!existing) {
+        const created = await db.woreda.create({ data: w })
+        woredaRecords[w.name] = { id: created.id }
+      } else {
+        woredaRecords[w.name] = { id: existing.id }
+      }
+    }
+  }
+
   // --- 2. Seed staff (all accounts shown on the login page demo panel) ---
   const leaderPassword = 'Bishoftu@2026' // default leader password — change after first login
   const adminPassword = 'Admin@2026' // default system admin password — change after first login!
@@ -50,12 +70,13 @@ export async function setupDatabase(): Promise<SetupResult> {
     { fullName: 'Ato Dawit Girma', email: 'dawit.girma@bishoftu.gov.et', phone: '+251911100003', role: 'TEAM_1_ASSIGNMENT', password: 'Team1@dawit', assignedWoredaName: null },
     { fullName: 'W/ro Sara Mengistu', email: 'sara.mengistu@bishoftu.gov.et', phone: '+251911100004', role: 'TEAM_2_FINANCE', password: 'Team2@sara', assignedWoredaName: null },
     { fullName: 'Ato Yonas Tadesse', email: 'yonas.tadesse@bishoftu.gov.et', phone: '+251911100005', role: 'TEAM_2_FINANCE', password: 'Team2@yonas', assignedWoredaName: null },
-    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', password: 'Woreda01@lemma', assignedWoredaName: null },
-    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', password: 'Woreda02@chaltu', assignedWoredaName: null },
+    { fullName: 'Ato Lemma Tariku', email: 'collector.woreda01@bishoftu.gov.et', phone: '+251911100007', role: 'DATA_COLLECTOR', password: 'Woreda01@lemma', assignedWoredaName: 'Bishoftu Central - Woreda 01' },
+    { fullName: 'W/ro Chaltu Dube', email: 'collector.woreda02@bishoftu.gov.et', phone: '+251911100008', role: 'DATA_COLLECTOR', password: 'Woreda02@chaltu', assignedWoredaName: 'Bishoftu Central - Woreda 02' },
   ]
   let staffCount = 0
   for (const s of staff) {
     const passwordHash = await hashPassword(s.password)
+    const targetWoredaId = s.assignedWoredaName ? woredaRecords[s.assignedWoredaName]?.id : null
     const existing = await db.staff.findUnique({ where: { email: s.email } })
     if (!existing) {
       await db.staff.create({
@@ -65,10 +86,20 @@ export async function setupDatabase(): Promise<SetupResult> {
           phone: s.phone,
           role: s.role,
           passwordHash,
-          assignedWoredaId: s.assignedWoredaName ? woredaRecords[s.assignedWoredaName]?.id : null,
+          assignedWoredaId: targetWoredaId,
         },
       })
       staffCount++
+    } else {
+      // Idempotent update: ensure existing Data Collector accounts are linked to their woreda
+      // if the woreda was added in a later seed run. This fixes accounts created before the
+      // woreda existed.
+      if (s.role === 'DATA_COLLECTOR' && targetWoredaId && existing.assignedWoredaId !== targetWoredaId) {
+        await db.staff.update({
+          where: { id: existing.id },
+          data: { assignedWoredaId: targetWoredaId },
+        })
+      }
     }
   }
 
